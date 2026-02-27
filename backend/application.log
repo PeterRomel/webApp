@@ -1,0 +1,109 @@
+2026-02-23 10:08:21,571 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-23 10:08:26,351 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-23 10:08:26,793 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-23 10:08:27,250 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-23 10:08:35,377 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-23 10:08:35,378 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-23 10:08:41,803 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-24 12:57:13,749 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-24 12:57:18,850 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-24 12:57:19,271 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-24 12:57:19,709 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-24 12:57:27,635 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-24 12:57:27,636 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-24 12:57:34,033 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-24 13:36:06,093 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-24 13:36:11,107 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-24 13:36:11,541 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-24 13:36:11,977 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-24 13:36:20,238 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-24 13:36:20,239 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-24 13:36:26,660 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-24 13:38:48,047 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-24 13:38:52,851 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-24 13:38:53,302 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-24 13:38:53,752 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-24 13:39:00,964 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-24 13:39:00,964 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-24 13:39:07,483 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-24 13:40:06,146 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-24 13:40:10,960 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-24 13:40:11,444 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-24 13:40:11,897 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-24 13:40:20,225 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-24 13:40:20,226 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-24 13:40:26,676 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-24 22:40:06,590 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-24 22:40:11,432 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-24 22:40:11,858 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-24 22:40:12,266 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-24 22:40:20,493 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-24 22:40:20,494 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-24 22:40:26,908 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-24 22:41:45,122 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-24 22:41:49,992 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-24 22:41:50,429 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-24 22:41:50,855 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-24 22:41:58,710 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-24 22:41:58,711 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-24 22:42:05,054 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-25 11:35:06,147 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-25 11:35:11,124 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-25 11:35:11,581 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-25 11:35:12,033 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-25 11:35:19,882 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-25 11:35:19,883 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-25 11:35:26,340 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-25 18:14:41,929 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-25 18:14:46,935 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-25 18:14:47,406 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-25 18:14:47,904 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-25 18:14:57,155 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-25 18:14:57,156 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-25 18:15:03,612 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-26 11:07:12,290 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-26 11:07:17,291 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-26 11:07:17,291 - ERROR - shared_app_logger - search_ingredient - Selenium Error on Aqua: 'Settings' object has no attribute 'API_KEY'
+2026-02-26 11:07:17,292 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-26 11:07:17,293 - ERROR - shared_app_logger - search_ingredient - Selenium Error on Zinc Oxide: 'Settings' object has no attribute 'API_KEY'
+2026-02-26 11:19:20,841 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-26 11:19:25,682 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-26 11:19:25,682 - ERROR - shared_app_logger - search_ingredient - Selenium Error on Aqua: 'Settings' object has no attribute 'API_KEY'
+2026-02-26 11:19:25,682 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-26 11:19:25,683 - ERROR - shared_app_logger - search_ingredient - Selenium Error on Zinc Oxide: 'Settings' object has no attribute 'API_KEY'
+2026-02-26 11:23:22,119 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-26 11:23:26,902 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-26 11:23:26,902 - ERROR - shared_app_logger - search_ingredient - Selenium Error on Aqua: 'Settings' object has no attribute 'API_KEY'
+2026-02-26 11:23:26,903 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-26 11:23:26,903 - ERROR - shared_app_logger - search_ingredient - Selenium Error on Zinc Oxide: 'Settings' object has no attribute 'API_KEY'
+2026-02-26 11:25:30,549 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-26 11:25:35,347 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-26 11:25:35,348 - ERROR - shared_app_logger - search_ingredient - Selenium Error on Aqua: 'Settings' object has no attribute 'API_KEY'
+2026-02-26 11:25:35,348 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-26 11:25:35,348 - ERROR - shared_app_logger - search_ingredient - Selenium Error on Zinc Oxide: 'Settings' object has no attribute 'API_KEY'
+2026-02-26 11:35:03,109 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-26 11:35:07,913 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-26 11:35:07,914 - ERROR - shared_app_logger - search_ingredient - Selenium Error on Aqua: 'Settings' object has no attribute 'API_KEY'
+2026-02-26 11:35:07,915 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-26 11:35:07,915 - ERROR - shared_app_logger - search_ingredient - Selenium Error on Zinc Oxide: 'Settings' object has no attribute 'API_KEY'
+2026-02-26 12:31:30,586 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-26 12:31:35,402 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-26 12:31:35,838 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-26 12:31:36,277 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-26 12:31:44,188 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-26 12:31:44,189 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-26 12:31:51,743 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-26 16:49:15,136 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-26 16:49:20,085 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-26 16:49:20,563 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-26 16:49:21,004 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-26 16:49:28,784 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-26 16:49:28,785 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-26 16:49:35,231 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-02-26 19:36:28,628 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-02-26 19:36:33,537 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-02-26 19:36:33,992 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-02-26 19:36:34,408 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-02-26 19:36:42,339 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-02-26 19:36:42,340 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-02-26 19:36:48,756 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
