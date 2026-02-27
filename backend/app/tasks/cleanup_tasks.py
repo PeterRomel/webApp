@@ -5,7 +5,9 @@ from sqlmodel import Session, select, delete
 from app.db.engine import engine
 from app.models.scraper import ScrapeJob
 from app.models.user import User
+from app.core.celery_app import celery_app
 
+@celery_app.task(name="app.tasks.cleanup_tasks.clear_old_data")
 def clear_old_data():
     with Session(engine) as session:
         # --- 1. Delete Jobs older than 30 days ---
