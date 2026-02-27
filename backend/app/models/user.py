@@ -12,7 +12,10 @@ class User(UserBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     hashed_password: str
     # This allows you to do `user.jobs` to see all their past scrapes
-    jobs: List["ScrapeJob"] = Relationship(back_populates="owner")
+    jobs: list["ScrapeJob"] = Relationship(
+        back_populates="owner", 
+        sa_relationship_kwargs={"passive_deletes": True}
+    )
 
 class UserCreate(UserBase):
     password: str
