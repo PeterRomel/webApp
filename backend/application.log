@@ -128,3 +128,24 @@
 2026-02-27 22:19:02,531 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
 2026-02-27 22:19:02,532 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
 2026-02-27 22:19:08,832 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-03-01 11:35:56,890 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-03-01 11:36:03,333 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-03-01 11:36:03,807 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-03-01 11:36:04,266 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-03-01 11:36:12,693 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-03-01 11:36:12,694 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-03-01 11:36:19,063 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-03-01 11:39:41,570 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-03-01 11:39:47,794 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-03-01 11:39:48,235 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-03-01 11:39:48,654 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-03-01 11:39:56,710 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-03-01 11:39:56,710 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-03-01 11:40:03,254 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI
+2026-03-01 11:45:54,308 - INFO - shared_app_logger - __init__ - Initializing Browser Session...
+2026-03-01 11:46:00,631 - ERROR - shared_app_logger - process_cosing_file - Processing (1/2): Aqua
+2026-03-01 11:46:01,112 - ERROR - shared_app_logger - process_cosing_file - Processing (2/2): Zinc Oxide
+2026-03-01 11:46:01,577 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex IV (Smart Intercept) ---
+2026-03-01 11:46:10,301 - INFO - shared_app_logger - get_annex_data - Cached 154 items for Annex IV
+2026-03-01 11:46:10,302 - INFO - shared_app_logger - get_annex_data - --- Fetching Full Annex VI (Smart Intercept) ---
+2026-03-01 11:46:16,604 - INFO - shared_app_logger - get_annex_data - Cached 34 items for Annex VI

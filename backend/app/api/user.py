@@ -1,12 +1,13 @@
 # app/api/user.py
-from fastapi import APIRouter, Depends, HTTPException
+import time
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 from app.db.engine import get_session
 from app.services.user_service import UserService
 from app.models.user import User, UserCreate, UserUpdate
 from app.models.scraper import ScrapeJob
-from app.core.security import create_access_token
-from app.api.deps import get_current_user_id
+from app.core.security import create_access_token, decode_access_token
+from app.api.deps import get_current_user_id, redis_client, oauth2_scheme
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -74,3 +75,29 @@ def get_user_history(
     statement = select(ScrapeJob).where(ScrapeJob.user_id == current_user_id)
     results = session.exec(statement).all()
     return results
+
+@router.post("/logout")
+def logout(
+    token: str = Depends(oauth2_scheme),
+    current_user_id: int = Depends(get_current_user_id)
+):
+    # 1. Reuse your existing decode function
+    payload = decode_access_token(token)
+    
+    # If the token is valid (which it should be if current_user_id passed),
+    # we extract the expiration time.
+    if payload and "exp" in payload:
+        exp_timestamp = payload["exp"]
+        current_time = int(time.time())
+        seconds_remaining = exp_timestamp - current_time
+
+        # 2. Only blacklist if there is time remaining
+        if seconds_remaining > 0:
+            redis_client.setex(f"blacklist:{token}", seconds_remaining, "true")
+            return {"detail": "Successfully logged out. Token has been revoked."}
+    
+    # If for some reason the payload is empty, the token is already invalid
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, 
+        detail="Invalid token"
+    )
