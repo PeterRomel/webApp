@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import DashboardLayout from "./components/DashboardLayout";
 
 // A helper component to protect our private pages
 const ProtectedRoute = ({ children }) => {
@@ -23,15 +24,35 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} /> {/* Add this line */}
+        <Route path="/register" element={<Register />} />
+
         <Route
           path="/"
           element={
             <ProtectedRoute>
-              <div className="p-8">
-                <h1 className="text-2xl font-bold">Dashboard Home</h1>
-                <p>Your scraping tools go here.</p>
-              </div>
+              <DashboardLayout>
+                {/* This is where the Scraper tool will go */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                  <h2 className="text-xl font-bold mb-4">Start New Scrape</h2>
+                  <p className="text-gray-600">
+                    Ready to extract ingredient data? Upload your Excel file
+                    below.
+                  </p>
+                  {/* We will build the File Upload component next */}
+                </div>
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Example: A History Page */}
+        <Route
+          path="/history"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <h2 className="text-xl font-bold">Scraping History</h2>
+              </DashboardLayout>
             </ProtectedRoute>
           }
         />
