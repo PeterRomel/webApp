@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 // A helper component to protect our private pages
 const ProtectedRoute = ({ children }) => {
@@ -22,16 +23,14 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-
+        <Route path="/register" element={<Register />} /> {/* Add this line */}
         <Route
           path="/"
           element={
             <ProtectedRoute>
               <div className="p-8">
-                <h1 className="text-2xl font-bold">
-                  Welcome to the Dashboard!
-                </h1>
-                <p>Only logged-in users see this.</p>
+                <h1 className="text-2xl font-bold">Dashboard Home</h1>
+                <p>Your scraping tools go here.</p>
               </div>
             </ProtectedRoute>
           }

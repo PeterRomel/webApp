@@ -11,7 +11,7 @@ from app.api.deps import get_current_user_id, redis_client, oauth2_scheme
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.post("/", response_model=User)
+@router.post("/register", response_model=User)
 def create_user(user_in: UserCreate, session: Session = Depends(get_session)):
     service = UserService(session)
     return service.create(user_in)
