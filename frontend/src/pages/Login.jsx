@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 
 const Login = () => {
   const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const location = useLocation();
+  const isExpired = new URLSearchParams(location.search).get("expired");
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -38,6 +40,12 @@ const Login = () => {
         {error && (
           <div className="bg-red-50 border-l-4 border-red-400 p-4 text-red-700 text-sm">
             {error}
+          </div>
+        )}
+
+        {isExpired && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-sm">
+            Your session has expired. Please log in again to continue.
           </div>
         )}
 

@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import DashboardLayout from "./components/DashboardLayout";
 import Scraper from "./pages/Scraper";
+import History from "./pages/History";
 
 // A helper component to protect our private pages
 const ProtectedRoute = ({ children }) => {
@@ -44,7 +45,7 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardLayout>
-                <h2 className="text-xl font-bold">Scraping History</h2>
+                <History />
               </DashboardLayout>
             </ProtectedRoute>
           }
