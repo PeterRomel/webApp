@@ -3,6 +3,7 @@ import { useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import DashboardLayout from "./components/DashboardLayout";
+import Scraper from "./pages/Scraper";
 
 // A helper component to protect our private pages
 const ProtectedRoute = ({ children }) => {
@@ -31,15 +32,7 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardLayout>
-                {/* This is where the Scraper tool will go */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <h2 className="text-xl font-bold mb-4">Start New Scrape</h2>
-                  <p className="text-gray-600">
-                    Ready to extract ingredient data? Upload your Excel file
-                    below.
-                  </p>
-                  {/* We will build the File Upload component next */}
-                </div>
+                <Scraper />
               </DashboardLayout>
             </ProtectedRoute>
           }
