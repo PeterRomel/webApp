@@ -8,7 +8,9 @@ const Login = () => {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const location = useLocation();
-  const isExpired = new URLSearchParams(location.search).get("expired");
+  const [isExpired, setIsExpired] = useState(
+    new URLSearchParams(location.search).get("expired"),
+  );
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setIsExpired(false);
     setIsSubmitting(true);
 
     const result = await login(user, password);
@@ -43,7 +46,7 @@ const Login = () => {
           </div>
         )}
 
-        {isExpired && (
+        {isExpired && !error && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-sm">
             Your session has expired. Please log in again to continue.
           </div>

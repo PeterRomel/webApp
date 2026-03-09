@@ -19,7 +19,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response, // If the request succeeds, just return the response
   (error) => {
-    if (error.response && error.response.status === 401) {
+    if (
+      error.response &&
+      error.response.status === 401 &&
+      !error.config.url.includes("/login")
+    ) {
       // Token expired or invalid!
       localStorage.removeItem("token");
       localStorage.removeItem("user");
