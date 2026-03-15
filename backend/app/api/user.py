@@ -4,19 +4,19 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 from app.db.engine import get_session
 from app.services.user_service import UserService
-from app.models.user import User, UserCreate, UserUpdate
+from app.models.user import User, UserCreate, UserUpdate, UserRead, UserLogin
 from app.models.scraper import ScrapeJob
 from app.core.security import create_access_token, decode_access_token
 from app.api.deps import get_current_user_id, redis_client, oauth2_scheme
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.post("/register", response_model=User)
+@router.post("/register", response_model=UserRead)
 def create_user(user_in: UserCreate, session: Session = Depends(get_session)):
     service = UserService(session)
     return service.create(user_in)
 
-@router.get("/me", response_model=User)
+@router.get("/me", response_model=UserRead)
 def read_user(
     user_id: int = Depends(get_current_user_id), 
     session: Session = Depends(get_session)
@@ -26,11 +26,11 @@ def read_user(
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-@router.get("/", response_model=list[User])
+@router.get("/", response_model=list[UserRead])
 def list_users(session: Session = Depends(get_session)):
     return UserService(session).list_all()
 
-@router.patch("/me", response_model=User)
+@router.patch("/me", response_model=UserRead)
 def update_user(
     user_in: UserUpdate,
     session: Session = Depends(get_session),
@@ -55,13 +55,10 @@ def delete_user(
     return {"detail": "User deleted successfully"}
 
 @router.post("/login")
-def login(user_in: UserCreate, session: Session = Depends(get_session)):
+def login(user_in: UserLogin, session: Session = Depends(get_session)):
     service = UserService(session)
-    user = service.authenticate(user_in.username, user_in.password)
+    user = service.authenticate(user_in.email, user_in.password)
     
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-        
     # Issue the "Boarding Pass"
     access_token = create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}

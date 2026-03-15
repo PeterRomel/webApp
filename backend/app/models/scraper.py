@@ -1,8 +1,12 @@
 # app/models/scraper.py
 #from app.models.user import User
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import SQLModel, Field, Column, JSON, Relationship, ForeignKey, Integer
 from datetime import datetime
+
+# This prevents circular imports when referencing User for type hinting
+if TYPE_CHECKING:
+    from app.models.user import User
 
 class ScrapeJob(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

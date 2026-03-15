@@ -40,6 +40,7 @@ const History = () => {
       link.click();
       link.remove();
     } catch (err) {
+      console.error(err);
       alert("Download failed");
     }
   };
@@ -108,21 +109,25 @@ const History = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {job.results.length || 0}
+                  {job.results?.length || 0}
                 </td>
                 <td className="px-6 py-4 text-right space-x-3">
-                  <button
-                    onClick={() => openDetails(job)}
-                    className="text-blue-600 hover:text-blue-900"
-                  >
-                    <Eye className="w-5 h-5 inline" />
-                  </button>
-                  <button
-                    onClick={() => handleDownload(job.id)}
-                    className="text-green-600 hover:text-green-900"
-                  >
-                    <Download className="w-5 h-5 inline" />
-                  </button>
+                  {job.status === "completed" && (
+                    <>
+                      <button
+                        onClick={() => openDetails(job)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        <Eye className="w-5 h-5 inline" />
+                      </button>
+                      <button
+                        onClick={() => handleDownload(job.id)}
+                        className="text-green-600 hover:text-green-900"
+                      >
+                        <Download className="w-5 h-5 inline" />
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}

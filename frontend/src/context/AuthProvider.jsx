@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { AuthContext } from './AuthContext';
-import api from '../api/axios';
+import { useState, useEffect } from "react";
+import { AuthContext } from "./AuthContext";
+import api from "../api/axios";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -9,16 +9,17 @@ export const AuthProvider = ({ children }) => {
   // Helper to fetch user data
   const fetchUser = async () => {
     try {
-      const response = await api.get('/api/users/me');
+      const response = await api.get("/api/users/me");
       setUser(response.data);
     } catch (error) {
-      localStorage.removeItem('token');
+      console.error(error.response?.data?.detail || "");
+      localStorage.removeItem("token");
       setUser(null);
     }
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (token) {
       fetchUser().finally(() => setLoading(false));
     } else {
@@ -26,40 +27,42 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-    const login = async (username, password) => {
+  const login = async (email, password) => {
     try {
-      // Sending a plain JavaScript object automatically tells 
+      // Sending a plain JavaScript object automatically tells
       // Axios to send it as JSON (application/json)
-      const response = await api.post('/api/users/login', {
-        username: username,
-        email: "",
-        password: password
+      const response = await api.post("/api/users/login", {
+        email: email,
+        password: password,
       });
-      
-      localStorage.setItem('token', response.data.access_token);
-      await fetchUser(); 
+
+      localStorage.setItem("token", response.data.access_token);
+      await fetchUser();
       return { success: true };
     } catch (error) {
-      const message = error.response?.data?.detail || "Login failed.";
-      return { success: false, error: message };
+      // const message = error.response?.data?.detail || "Login failed.";
+      return { success: false, error: error };
     }
   };
 
   const logout = async () => {
     try {
       // Optional: Call your backend /logout route to blacklist the token
-      await api.post('/api/users/logout');
+      await api.post("/api/users/logout");
     } catch (err) {
-      console.error("Logout failed on server, cleaning up local storage anyway.");
+      console.error(
+        "Logout failed on server, cleaning up local storage anyway.",
+        err.response?.data?.detail || "",
+      );
     } finally {
-      localStorage.removeItem('token');
+      localStorage.removeItem("token");
       setUser(null);
     }
   };
 
   return (
     <AuthContext.Provider value={{ user, login, logout, loading }}>
-      {!loading && children} 
+      {!loading && children}
       {/* Logic: Don't render the app until we know if the user is logged in */}
     </AuthContext.Provider>
   );

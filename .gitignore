@@ -2,6 +2,7 @@
 .venv
 __pycache__
 *.pyc
+*.log
 
 # Environment
 .env
@@ -31,3 +32,6 @@ frontend/build/
 *.njsproj
 *.sln
 *.sw?
+
+# System files
+systemFiles

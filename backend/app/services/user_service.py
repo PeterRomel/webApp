@@ -8,21 +8,19 @@ class UserService:
     def __init__(self, session: Session):
         self.session = session
 
+    def _format_username(self, username: str) -> str:
+        # "peter smith" -> "Peter Smith"
+        return username.title()
+    
+    def _format_email(self, email: str) -> str:
+        # "peter smith" -> "Peter Smith"
+        return email.lower()
+    
     def create(self, user_in: UserCreate) -> User:
-        # Check if username already exists
-        existing_user = self.session.exec(
-            select(User).where(User.username == user_in.username)
-        ).first()
-        
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="A user with this username already exists."
-            )
 
         # Check if email already exists
         existing_email = self.session.exec(
-            select(User).where(User.email == user_in.email)
+            select(User).where(User.email == self._format_email(user_in.email))
         ).first()
         
         if existing_email:
@@ -32,8 +30,8 @@ class UserService:
             )
         
         db_user = User(
-            username=user_in.username,
-            email=user_in.email,
+            username=self._format_username(user_in.username),
+            email=self._format_email(user_in.email),
             hashed_password=hash_password(user_in.password)
         )
         self.session.add(db_user)
@@ -49,25 +47,36 @@ class UserService:
 
     def update(self, user_id: int, user_in: UserUpdate) -> User:
         db_user = self.get_by_id(user_id)
-        user_data = user_in.model_dump(exclude_unset=True)
-        for key, value in user_data.items():
-            setattr(db_user, key, value)
+        update_data = user_in.model_dump(exclude_unset=True)
+        
+        if "username" in update_data:
+            db_user.username = self._format_username(update_data["username"])
+
+        if "password" in update_data:
+            db_user.hashed_password = hash_password(update_data["password"])
+        
         self.session.add(db_user)
         self.session.commit()
         self.session.refresh(db_user)
         return db_user
 
-    def authenticate(self, username: str, password: str) -> User | None:
+    def authenticate(self, email: str, password: str) -> User | None:
         # 1. Find user in DB
-        statement = select(User).where(User.username == username)
+        statement = select(User).where(User.email == self._format_email(email))
         db_user = self.session.exec(statement).first()
         
         if not db_user:
-            return None
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No account found with this email address."
+            )
         
         # 2. Check password
         if not verify_password(password, db_user.hashed_password):
-            return None
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password. Please try again."
+            )
 
         return db_user
 

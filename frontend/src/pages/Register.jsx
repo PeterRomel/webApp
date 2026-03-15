@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 
@@ -9,18 +10,27 @@ const Register = () => {
     password: "",
     confirmPassword: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
+  const [formErrors, setFormErrors] = useState({});
+  //const [passwordMatch, setPasswordMatch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const isPasswordMismatch =
+    formData.confirmPassword.length > 0 &&
+    formData.password !== formData.confirmPassword;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setFormErrors({});
+    //setPasswordMatch("");
 
     // 1. Client-side Validation
-    if (formData.password !== formData.confirmPassword) {
-      return setError("Passwords do not match");
-    }
+    /* if (formData.password !== formData.confirmPassword) {
+      return setPasswordMatch("Passwords do not match");
+    } */
 
     setIsSubmitting(true);
 
@@ -35,13 +45,21 @@ const Register = () => {
 
       // 3. Success! Redirect to login
       navigate("/login", {
-        state: { message: "Account created! Please log in." },
+        state: { message: "Account created" },
       });
     } catch (err) {
-      const msg =
-        err.response?.data?.detail ||
-        "Registration failed. Try a different username.";
-      setError(msg);
+      if (err.response?.status === 422) {
+        // These are Pydantic Validation Errors
+        const validationErrors = err.response.data.detail;
+        validationErrors.forEach((error) => {
+          const field = error.loc[1]; // "password" or "email"
+          const message = error.msg;
+          setFormErrors((prev) => ({ ...prev, [field]: message }));
+        });
+      } else {
+        // These are your Service Errors (e.g., "Email already exists")
+        setError(err.response?.data?.detail || "Registration failed.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -70,8 +88,13 @@ const Register = () => {
               setFormData({ ...formData, username: e.target.value })
             }
           />
+          {formErrors.username && (
+            <div className="text-red-500 text-xs mt-1 ml-1 font-medium animate-pulse">
+              {formErrors.username}
+            </div>
+          )}
           <input
-            type="email"
+            type="text"
             required
             className="w-full px-3 py-2 border rounded-md"
             placeholder="Email Address"
@@ -79,28 +102,61 @@ const Register = () => {
               setFormData({ ...formData, email: e.target.value })
             }
           />
-          <input
-            type="password"
-            required
-            className="w-full px-3 py-2 border rounded-md"
-            placeholder="Password"
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
-            }
-          />
-          <input
-            type="password"
-            required
-            className="w-full px-3 py-2 border rounded-md"
-            placeholder="Confirm Password"
-            onChange={(e) =>
-              setFormData({ ...formData, confirmPassword: e.target.value })
-            }
-          />
+          {formErrors.email && (
+            <div className="text-red-500 text-xs mt-1 ml-1 font-medium animate-pulse">
+              {formErrors.email}
+            </div>
+          )}
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              className="w-full px-3 py-2 border rounded-md pr-10" // added padding-right
+              placeholder="Password"
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
+            />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+          {formErrors.password && (
+            <div className="text-red-500 text-xs mt-1 ml-1 font-medium animate-pulse">
+              {formErrors.password}
+            </div>
+          )}
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              required
+              className="w-full px-3 py-2 border rounded-md pr-10"
+              placeholder="Confirm Password"
+              onChange={(e) =>
+                setFormData({ ...formData, confirmPassword: e.target.value })
+              }
+            />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+          {isPasswordMismatch && (
+            <div className="text-red-500 text-xs mt-1 ml-1 font-medium animate-pulse">
+              Passwords do not match
+            </div>
+          )}
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isPasswordMismatch || isSubmitting}
             className="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 disabled:bg-green-300"
           >
             {isSubmitting ? "Creating Account..." : "Register"}
