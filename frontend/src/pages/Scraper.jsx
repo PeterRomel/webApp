@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Upload, FileText, CheckCircle, Loader2 } from "lucide-react";
 import api from "../api/axios";
 
@@ -10,32 +10,58 @@ const Scraper = () => {
   const [results, setResults] = useState(null);
 
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+    const selectedFile = e.target.files[0];
+
+    // If the user cancels the file dialog, do nothing
+    if (!selectedFile) return;
+
+    // 50MB in bytes (50 * 1024 * 1024)
+    const MAX_FILE_SIZE = 52428800;
+
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setError("File is too large. Please upload a file smaller than 50MB.");
+      setFile(null); // Reject the file
+      // Optional: Reset the input element if they try to upload the exact same file twice
+      e.target.value = null;
+      return;
+    }
+
+    setFile(selectedFile);
     setError(null);
   };
 
-  const pollStatus = (jobId) => {
-    const interval = setInterval(async () => {
-      try {
-        // Assuming you have a route like GET /api/scrape/status/{job_id}
-        const response = await api.get(`/api/scrape/status/${jobId}`);
+  const pollInterval = useRef(null);
 
+  const pollStatus = (jobId) => {
+    // Clear any existing poll before starting a new one
+    if (pollInterval.current) clearInterval(pollInterval.current);
+
+    pollInterval.current = setInterval(async () => {
+      try {
+        const response = await api.get(`/api/scrape/status/${jobId}`);
         if (response.data.status === "completed") {
           setStatus("COMPLETED");
           setResults(response.data);
-          clearInterval(interval);
+          clearInterval(pollInterval.current);
         } else if (response.data.status === "failed") {
           setError("Scraping failed during processing.");
           setStatus("IDLE");
-          clearInterval(interval);
+          clearInterval(pollInterval.current);
         }
-        // If it's still 'pending' or 'processing', do nothing and wait for next interval
       } catch (err) {
         console.error("Polling error:", err);
-        // Don't clear interval here, the server might just be temporarily busy
       }
-    }, 3000); // Check every 3 seconds
+    }, 10000);
   };
+
+  useEffect(() => {
+    // This return function acts as a "cleanup" when the component unmounts (user leaves the page)
+    return () => {
+      if (pollInterval.current) {
+        clearInterval(pollInterval.current);
+      }
+    };
+  }, []);
 
   const handleDownload = async () => {
     try {
@@ -117,7 +143,21 @@ const Scraper = () => {
             onDragOver={(e) => e.preventDefault()} // Stops Chrome from trying to open the file
             onDrop={(e) => {
               e.preventDefault();
-              setFile(e.dataTransfer.files[0]);
+              const droppedFile = e.dataTransfer.files[0];
+
+              if (!droppedFile) return;
+
+              const MAX_FILE_SIZE = 52428800;
+              if (droppedFile.size > MAX_FILE_SIZE) {
+                setError(
+                  "File is too large. Please drop a file smaller than 50MB.",
+                );
+                setFile(null);
+                return;
+              }
+
+              setFile(droppedFile);
+              setError(null);
             }}
             className="border-2 border-dashed border-gray-200 rounded-xl p-12 flex flex-col items-center justify-center transition-colors hover:border-blue-400"
           >
@@ -126,7 +166,7 @@ const Scraper = () => {
               type="file"
               id="file-upload"
               className="hidden"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.xlsm,.xls,.csv"
               onChange={handleFileChange}
             />
             <label
@@ -243,6 +283,7 @@ const Scraper = () => {
                   setStatus("IDLE");
                   setFile(null);
                   setResults(null);
+                  // document.getElementById("file-upload").value = "";
                 }}
                 className="text-sm text-gray-500 hover:text-blue-600 font-medium"
               >

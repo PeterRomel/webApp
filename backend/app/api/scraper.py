@@ -2,6 +2,7 @@
 import os
 import io
 import uuid
+import shutil
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
@@ -10,21 +11,22 @@ from app.db.engine import get_session
 from app.models.scraper import ScrapeJob
 from app.tasks.scraper_tasks import process_cosing_file
 from app.api.deps import get_current_user_id
+from app.core.config import settings
 
 router = APIRouter(prefix="/scrape", tags=["Scraper"])
 
 # Directory to store uploaded files temporarily
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = settings.UPLOAD_DIR
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post("/upload")
-async def upload_ingredients_file(
+def upload_ingredients_file(
     file: UploadFile = File(...), 
     session: Session = Depends(get_session),
     current_user_id: int = Depends(get_current_user_id) # Token check!
 ):
     # 1. Basic Validation
-    if not file.filename.endswith(('.xlsx', '.csv')):
+    if not file.filename.lower().endswith(('.xlsx', '.xlsm', '.xls', '.csv')):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload Excel or CSV.")
 
     # 2. Save file with a unique name to prevent overwriting
@@ -33,7 +35,7 @@ async def upload_ingredients_file(
     saved_path = os.path.join(UPLOAD_DIR, f"{file_id}{file_extension}")
     
     with open(saved_path, "wb") as buffer:
-        buffer.write(await file.read())
+        shutil.copyfileobj(file.file, buffer)
 
     # 3. Create Job record in Database
     new_job = ScrapeJob(filename=file.filename, status="pending", user_id=current_user_id)
@@ -86,6 +88,9 @@ def download_results(
     if job.status != "completed":
         raise HTTPException(status_code=400, detail="Results are not ready for download")
     
+    if not job.results:
+        raise HTTPException(status_code=400, detail="No data was found during scraping. Nothing to download.")
+
     # 1. Convert the JSON results in the DB back to a DataFrame
     df = pd.DataFrame(job.results)
 

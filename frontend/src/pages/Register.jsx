@@ -56,12 +56,12 @@ const Register = () => {
           const message = error.msg;
           setFormErrors((prev) => ({ ...prev, [field]: message }));
         });
+        setIsSubmitting(false);
       } else {
         // These are your Service Errors (e.g., "Email already exists")
         setError(err.response?.data?.detail || "Registration failed.");
+        setIsSubmitting(false);
       }
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

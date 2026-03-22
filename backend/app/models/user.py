@@ -60,8 +60,9 @@ class UserCreate(UserBase):
     def check_password(cls, v: str):
         return validate_password_strength(v)
 
+""" 
 class UserLogin(SQLModel):
-    """Used strictly for the login endpoint."""
+    # Used strictly for the login endpoint.
     email: EmailStr
     password: str = Field(min_length=1)
 
@@ -70,7 +71,7 @@ class UserLogin(SQLModel):
     def check_not_empty(cls, v: str):
         # We don't check 'strength' on login, just that it isn't empty
         return validate_not_empty("Field", v)
-
+ """
 class UserUpdate(SQLModel):
     username: Optional[str] = Field(default=None, min_length=1)
     password: Optional[str] = Field(default=None)

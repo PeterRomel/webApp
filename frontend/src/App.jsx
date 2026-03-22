@@ -22,10 +22,11 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function App() {
+  const { user } = useAuth();
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
         <Route path="/register" element={<Register />} />
 
         <Route

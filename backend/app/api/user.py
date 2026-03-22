@@ -1,13 +1,27 @@
 # app/api/user.py
 import time
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 from app.db.engine import get_session
 from app.services.user_service import UserService
-from app.models.user import User, UserCreate, UserUpdate, UserRead, UserLogin
+from app.models.user import User, UserCreate, UserUpdate, UserRead
 from app.models.scraper import ScrapeJob
 from app.core.security import create_access_token, decode_access_token
 from app.api.deps import get_current_user_id, redis_client, oauth2_scheme
+
+def revoke_token(token: str):
+    """Helper function to decode a token and add it to the Redis blacklist."""
+    payload = decode_access_token(token)
+    
+    if payload and "exp" in payload:
+        exp_timestamp = payload["exp"]
+        current_time = int(time.time())
+        seconds_remaining = exp_timestamp - current_time
+
+        # Only blacklist if there is time remaining before it naturally expires
+        if seconds_remaining > 0:
+            redis_client.setex(f"blacklist:{token}", seconds_remaining, "true")
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -44,6 +58,7 @@ def update_user(
 
 @router.delete("/me")
 def delete_user(
+    token: str = Depends(oauth2_scheme),
     user_id: int = Depends(get_current_user_id), 
     session: Session = Depends(get_session)
 ):
@@ -51,15 +66,27 @@ def delete_user(
     db_user = service.get_by_id(user_id)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # 1. Delete the user from the PostgreSQL database
     service.delete(user_id)
-    return {"detail": "User deleted successfully"}
+    
+    # 2. Add their token to the Redis blacklist (Logout)
+    revoke_token(token)
+    
+    return {"detail": "User deleted and successfully logged out"}
 
 @router.post("/login")
-def login(user_in: UserLogin, session: Session = Depends(get_session)):
+def login(
+    # FastAPI will automatically extract 'username' and 'password' from the Form Data
+    form_data: OAuth2PasswordRequestForm = Depends(), 
+    session: Session = Depends(get_session)
+):
     service = UserService(session)
-    user = service.authenticate(user_in.email, user_in.password)
     
-    # Issue the "Boarding Pass"
+    # Note: Even if it's an email, OAuth2 forces the field to be named 'username'
+    # So we pass form_data.username to your authenticate function
+    user = service.authenticate(form_data.username, form_data.password)
+    
     access_token = create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -69,7 +96,7 @@ def get_user_history(
     session: Session = Depends(get_session)
 ):
     # Fetch all jobs belonging to this specific user
-    statement = select(ScrapeJob).where(ScrapeJob.user_id == current_user_id)
+    statement = select(ScrapeJob).where(ScrapeJob.user_id == current_user_id).order_by(ScrapeJob.created_at.desc())
     results = session.exec(statement).all()
     return results
 
@@ -78,23 +105,6 @@ def logout(
     token: str = Depends(oauth2_scheme),
     current_user_id: int = Depends(get_current_user_id)
 ):
-    # 1. Reuse your existing decode function
-    payload = decode_access_token(token)
+    revoke_token(token)
+    return {"detail": "Successfully logged out. Token has been revoked."}
     
-    # If the token is valid (which it should be if current_user_id passed),
-    # we extract the expiration time.
-    if payload and "exp" in payload:
-        exp_timestamp = payload["exp"]
-        current_time = int(time.time())
-        seconds_remaining = exp_timestamp - current_time
-
-        # 2. Only blacklist if there is time remaining
-        if seconds_remaining > 0:
-            redis_client.setex(f"blacklist:{token}", seconds_remaining, "true")
-            return {"detail": "Successfully logged out. Token has been revoked."}
-    
-    # If for some reason the payload is empty, the token is already invalid
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, 
-        detail="Invalid token"
-    )

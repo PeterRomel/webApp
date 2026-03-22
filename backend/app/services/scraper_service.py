@@ -11,13 +11,19 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 class CosingScraper:
     def __init__(self):
-        self.driver = self._setup_driver()
+        self.driver = None
         self.annex_cache = {} # Cache to store downloaded Annexes
         
-        # Initial navigation to set cookies/headers
-        APP_LOGGER.info("Initializing Browser Session...")
-        self.driver.get(settings.SEARCH_START_URL)
-        time.sleep(3)
+        try:
+            self.driver = self._setup_driver()
+            APP_LOGGER.info("Initializing Browser Session...")
+            self.driver.get(settings.SEARCH_START_URL)
+            time.sleep(3)
+        except Exception as e:
+            APP_LOGGER.exception(f"Failed to load start URL: {e}")
+            if self.driver:
+                self.driver.quit()
+            raise e
 
     def _setup_driver(self):
         """Configures Chrome with Performance logging for CDP."""
@@ -25,7 +31,7 @@ class CosingScraper:
         chrome_options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
         
         # Headless Flags
-        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
@@ -34,7 +40,8 @@ class CosingScraper:
         # Anti-detection
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
-        service = Service(ChromeDriverManager().install())
+        service = Service(executable_path=settings.CHROME_DRIVER_PATH)
+        chrome_options.binary_location = settings.CHROME_BROWSER_PATH
         return webdriver.Chrome(service=service, options=chrome_options)
 
     def search_ingredient(self, ingredient_name):
@@ -97,7 +104,7 @@ class CosingScraper:
                 time.sleep(0.2) # Small delay to be polite
 
             except Exception as e:
-                APP_LOGGER.error(f"Selenium Error on {ingredient_name}: {e}")
+                APP_LOGGER.exception(f"Selenium Error on {ingredient_name}: {e}")
                 break
                 
         return all_results
@@ -209,7 +216,7 @@ class CosingScraper:
                 time.sleep(0.2)
 
         except Exception as e:
-            APP_LOGGER.error(f"Annex Scrape Error: {e}")
+            APP_LOGGER.exception(f"Annex Scrape Error: {e}")
 
         # E. Process and Cache Results
         annex_map = {}

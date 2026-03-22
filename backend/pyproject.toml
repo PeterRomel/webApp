@@ -1,7 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "celery>=5.6.2",
     "fastapi>=0.129.0",
@@ -20,4 +20,5 @@ dependencies = [
     "uvicorn>=0.40.0",
     "uvicorn-worker>=0.4.0",
     "webdriver-manager>=4.0.2",
+    "xlrd>=2.0.2",
 ]

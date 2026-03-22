@@ -1,14 +1,14 @@
 import axios from "axios";
 
 const api = axios.create({
-  // This is where your FastAPI server is running
-  baseURL: "http://127.0.0.1:8000",
+  // Use localhost for dev, but use an empty string in production so it relies on the actual domain (Nginx)
+  baseURL: import.meta.env.DEV ? "http://127.0.0.1:8000" : "",
 });
 
 // This "Interceptor" automatically attaches your JWT token
 // to every request if it exists in your browser's storage.
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -25,8 +25,8 @@ api.interceptors.response.use(
       !error.config.url.includes("/login")
     ) {
       // Token expired or invalid!
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("user");
 
       // Force a redirect to login
       window.location.href = "/login?expired=true";

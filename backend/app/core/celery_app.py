@@ -5,8 +5,8 @@ from app.core.config import settings
 
 celery_app = Celery(
     "worker",
-    broker=f"redis://localhost:6379/0",
-    backend=f"redis://localhost:6379/0",
+    broker=settings.REDIS_URL_CELERY,
+    backend=settings.REDIS_URL_CELERY,
     include=[
         "app.tasks.scraper_tasks", 
         "app.tasks.cleanup_tasks" # Include your new cleanup file

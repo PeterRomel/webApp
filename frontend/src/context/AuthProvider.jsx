@@ -13,13 +13,13 @@ export const AuthProvider = ({ children }) => {
       setUser(response.data);
     } catch (error) {
       console.error(error.response?.data?.detail || "");
-      localStorage.removeItem("token");
+      sessionStorage.removeItem("token");
       setUser(null);
     }
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     if (token) {
       fetchUser().finally(() => setLoading(false));
     } else {
@@ -29,18 +29,30 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      // Sending a plain JavaScript object automatically tells
-      // Axios to send it as JSON (application/json)
-      const response = await api.post("/api/users/login", {
-        email: email,
-        password: password,
-      });
+      /* 
+      // 1. Create Form Data instead of a standard JSON object
+      const formData = new URLSearchParams();
+      formData.append("username", email); // Must be named 'username' for OAuth2
+      formData.append("password", password);
+ */
+      // 2. Send it to FastAPI
+      const response = await api.post(
+        "/api/users/login",
+        {
+          username: email,
+          password: password,
+        },
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        },
+      );
 
-      localStorage.setItem("token", response.data.access_token);
+      sessionStorage.setItem("token", response.data.access_token);
       await fetchUser();
       return { success: true };
     } catch (error) {
-      // const message = error.response?.data?.detail || "Login failed.";
       return { success: false, error: error };
     }
   };
@@ -55,7 +67,7 @@ export const AuthProvider = ({ children }) => {
         err.response?.data?.detail || "",
       );
     } finally {
-      localStorage.removeItem("token");
+      sessionStorage.removeItem("token");
       setUser(null);
     }
   };
