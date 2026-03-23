@@ -32,7 +32,7 @@ const Login = () => {
     if (result.success) {
       navigate("/"); // Send user to the Dashboard
     } else {
-      if (result.error.response?.status === 422) {
+      if (result.error?.response?.status === 422) {
         // These are Pydantic Validation Errors
         const validationErrors = result.error.response.data.detail;
         validationErrors.forEach((error) => {
@@ -43,7 +43,10 @@ const Login = () => {
         setIsSubmitting(false);
       } else {
         // These are your Service Errors (e.g., "Email doesn't exist")
-        setError(result.error.response?.data?.detail);
+        setError(
+          result.error.response?.data?.detail ||
+            "Network Error: Cannot connect to server.",
+        );
         setIsSubmitting(false);
       }
     }

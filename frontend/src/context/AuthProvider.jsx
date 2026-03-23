@@ -29,13 +29,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      /* 
-      // 1. Create Form Data instead of a standard JSON object
-      const formData = new URLSearchParams();
-      formData.append("username", email); // Must be named 'username' for OAuth2
-      formData.append("password", password);
- */
-      // 2. Send it to FastAPI
+      // Send it to FastAPI
       const response = await api.post(
         "/api/users/login",
         {
@@ -59,7 +53,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      // Optional: Call your backend /logout route to blacklist the token
+      // Call your backend /logout route to blacklist the token
       await api.post("/api/users/logout");
     } catch (err) {
       console.error(
