@@ -22,7 +22,8 @@ api.interceptors.response.use(
     if (
       error.response &&
       error.response.status === 401 &&
-      !error.config.url.includes("/login")
+      !error.config.url.includes("/login") &&
+      window.location.pathname !== "/login"
     ) {
       // Token expired or invalid!
       sessionStorage.removeItem("token");

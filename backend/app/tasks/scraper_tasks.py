@@ -44,7 +44,7 @@ def process_cosing_file(job_id: int, file_path: str):
                 rows = process_data(scraper, ing_name)
                 all_results.extend(rows)
             except Exception as e:
-                APP_LOGGER.exception(f"Failed to process job {job_id}: ({index+1}/{total}): {ing_name}\n" + e)
+                APP_LOGGER.exception(f"Failed to process job {job_id}: ({index+1}/{total}): {ing_name}\n{e}")
 
         with Session(engine) as session:
             job = session.get(ScrapeJob, job_id)

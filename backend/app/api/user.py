@@ -9,6 +9,8 @@ from app.models.user import User, UserCreate, UserUpdate, UserRead
 from app.models.scraper import ScrapeJob
 from app.core.security import create_access_token, decode_access_token
 from app.api.deps import get_current_user_id, redis_client, oauth2_scheme
+import redis.exceptions
+from app.core.logger_config import APP_LOGGER
 
 def revoke_token(token: str):
     """Helper function to decode a token and add it to the Redis blacklist."""
@@ -21,7 +23,10 @@ def revoke_token(token: str):
 
         # Only blacklist if there is time remaining before it naturally expires
         if seconds_remaining > 0:
-            redis_client.setex(f"blacklist:{token}", seconds_remaining, "true")
+            try:
+                redis_client.setex(f"blacklist:{token}", seconds_remaining, "true")
+            except redis.exceptions.RedisError:
+                APP_LOGGER.error("Redis is unreachable. Could not blacklist token.")
 
 router = APIRouter(prefix="/users", tags=["Users"])
 

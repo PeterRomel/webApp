@@ -94,6 +94,7 @@ const Scraper = () => {
 
     setStatus("UPLOADING");
     setError(null);
+    setResults(null);
     const formData = new FormData();
 
     formData.append("file", file);
