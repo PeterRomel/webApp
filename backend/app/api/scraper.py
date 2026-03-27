@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlmodel import Session
 from app.db.engine import get_session
 from app.models.scraper import ScrapeJob
-from app.tasks.scraper_tasks import process_cosing_file
+from app.tasks.scraper_tasks import master_process_file
 from app.api.deps import get_current_user_id
 from app.core.config import settings
 
@@ -44,7 +44,7 @@ def upload_ingredients_file(
     session.refresh(new_job)
 
     # 4. Trigger Celery Task
-    process_cosing_file.delay(new_job.id, saved_path)
+    master_process_file.delay(new_job.id, saved_path)
 
     return {"job_id": new_job.id, "message": "Scraping task started in background"}
 
