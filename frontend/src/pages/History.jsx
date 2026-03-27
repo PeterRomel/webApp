@@ -40,8 +40,28 @@ const History = () => {
       link.click();
       link.remove();
     } catch (err) {
-      console.error(err);
-      alert("Download failed");
+      console.error("Download error:", err);
+
+      let errorMessage = "Download failed. Please try again.";
+
+      if (err.response && err.response.data instanceof Blob) {
+        try {
+          // Convert Blob to text, then to JSON
+          const errorText = await err.response.data.text();
+          const errorJson = JSON.parse(errorText);
+
+          if (errorJson.detail) {
+            errorMessage = errorJson.detail;
+          }
+        } catch (parseErr) {
+          console.error("Could not parse error blob", parseErr);
+        }
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      }
+
+      // Display the actual FastAPI error message
+      alert(errorMessage);
     }
   };
 

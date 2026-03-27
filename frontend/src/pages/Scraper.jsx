@@ -85,7 +85,30 @@ const Scraper = () => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Download failed:", err);
-      setError("Could not download the file. Please try again.");
+
+      let errorMessage = "Could not download the file. Please try again.";
+
+      // Check if the error response is a Blob
+      if (err.response && err.response.data instanceof Blob) {
+        try {
+          // Await the text content of the Blob
+          const errorText = await err.response.data.text();
+          // Parse the string back into a JSON object
+          const errorJson = JSON.parse(errorText);
+
+          if (errorJson.detail) {
+            errorMessage = errorJson.detail; // "Results are not ready for download"
+          }
+        } catch (parseErr) {
+          console.error("Could not parse error blob", parseErr);
+        }
+      } else if (err.response?.data?.detail) {
+        // Fallback just in case it wasn't a Blob
+        errorMessage = err.response.data.detail;
+      }
+
+      // Update the UI with the exact message from FastAPI
+      setError(errorMessage);
     }
   };
 
@@ -282,6 +305,7 @@ const Scraper = () => {
               <button
                 onClick={() => {
                   setStatus("IDLE");
+                  setError(null);
                   setFile(null);
                   setResults(null);
                   // document.getElementById("file-upload").value = "";
