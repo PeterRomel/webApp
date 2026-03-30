@@ -66,6 +66,7 @@ def get_job_status(
         "id": job.id,
         "status": job.status,
         "created_at": job.created_at,
+        "error_message": job.error_message,
         "result_count": len(job.results) if job.results else 0,
         "data": job.results if job.status == "completed" else None
     }

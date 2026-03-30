@@ -148,6 +148,14 @@ const History = () => {
                       </button>
                     </>
                   )}
+                  {job.status === "failed" && job.error_message && (
+                    <p
+                      className="text-xs text-red-500 mt-1 max-w-xs truncate"
+                      title={job.error_message}
+                    >
+                      {job.error_message}
+                    </p>
+                  )}
                 </td>
               </tr>
             ))}

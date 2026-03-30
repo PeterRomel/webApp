@@ -15,7 +15,7 @@ class ScrapeJob(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # Store results as a JSON blob or a link to a new file
     results: Optional[List[dict]] = Field(default=None, sa_column=Column(JSON))
-    
+    error_message: Optional[str] = Field(default=None)
     user_id: Optional[int] = Field(
         sa_column=Column(
             Integer, 

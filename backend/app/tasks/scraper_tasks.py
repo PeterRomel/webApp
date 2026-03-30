@@ -9,6 +9,19 @@ from app.core.scraper_config import process_data
 from app.services.scraper_service import CosingScraper
 from app.core.logger_config import APP_LOGGER
 
+def _set_job_failed(job_id: int, error_msg: str):
+    """Helper to update DB when a job fails"""
+    try:
+        with Session(engine) as session:
+            job = session.get(ScrapeJob, job_id)
+            if job:
+                job.status = "failed"
+                job.error_message = error_msg
+                session.add(job)
+                session.commit()
+    except Exception as e:
+        APP_LOGGER.error(f"Failed to write error state to DB for job {job_id}: {e}")
+
 # ---------------------------------------------------------
 # 1. THE SPLITTER (Master Task)
 # ---------------------------------------------------------
@@ -21,6 +34,10 @@ def master_process_file(job_id: int, file_path: str):
         else:
             input_df = pd.read_excel(file_path)
         
+        # Catch predictable user errors!
+        if 'Ingredient' not in input_df.columns:
+            raise ValueError("The uploaded file is missing the required 'Ingredient' column. Please check your headers.")
+
         # Clean up empty rows
         input_df = input_df.dropna(subset=['Ingredient'])
         
@@ -54,14 +71,16 @@ def master_process_file(job_id: int, file_path: str):
         # Execute the Chord (Task Group -> Callback)
         chord(task_group)(callback)
 
+    # Catch the ValueError we just raised (Friendly Error)
+    except ValueError as ve:
+            APP_LOGGER.warning(f"Job {job_id} failed validation: {ve}")
+            _set_job_failed(job_id, str(ve))
+
+    # Catch all other unexpected Python errors (System Error)
     except Exception as e:
-        APP_LOGGER.exception(f"Job {job_id} failed during setup: {e}")
-        with Session(engine) as session:
-            job = session.get(ScrapeJob, job_id)
-            if job:
-                job.status = "failed"
-                session.add(job)
-                session.commit()
+        APP_LOGGER.exception(f"Job {job_id} crashed unexpectedly: {e}")
+        _set_job_failed(job_id, "A system error occurred while reading your file. Support has been notified.")
+    
     finally:
         # We don't need the file anymore because data is safely in Celery/Redis memory
         if os.path.exists(file_path):
@@ -121,8 +140,5 @@ def merge_and_save_results(all_chunk_results, job_id: int):
         
     except Exception as e:
         APP_LOGGER.exception(f"Job {job_id}: Failed to save merged results: {e}")
-        with Session(engine) as session:
-            job = session.get(ScrapeJob, job_id)
-            job.status = "failed"
-            session.add(job)
-            session.commit()
+        APP_LOGGER.exception(f"Job {job_id}: Failed to save merged results: {e}")
+        _set_job_failed(job_id, "Scraping completed, but failed to save results to the database.")

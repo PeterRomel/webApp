@@ -44,7 +44,11 @@ const Scraper = () => {
           setResults(response.data);
           clearInterval(pollInterval.current);
         } else if (response.data.status === "failed") {
-          setError("Scraping failed during processing.");
+          // Use the backend error, or fall back to a generic one if it's missing
+          const backendError =
+            response.data.error_message ||
+            "Scraping failed due to an unknown error.";
+          setError(backendError);
           setStatus("IDLE");
           clearInterval(pollInterval.current);
         }
