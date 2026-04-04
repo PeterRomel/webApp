@@ -133,6 +133,7 @@ def merge_and_save_results(all_chunk_results, job_id: int):
             job = session.get(ScrapeJob, job_id)
             job.status = "completed"
             job.results = final_results
+            job.result_count = len(final_results)
             session.add(job)
             session.commit()
             
