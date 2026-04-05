@@ -102,7 +102,8 @@ def download_results(
     output.seek(0)
 
     # 3. Stream the file to the user
+    safe_filename = job.filename.replace('"', '').replace('\n', '').replace('\r', '')
     headers = {
-        'Content-Disposition': f'attachment; filename="results_{job.filename}"'
+        'Content-Disposition': f'attachment; filename="results_{safe_filename}"'
     }
     return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

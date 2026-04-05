@@ -79,7 +79,7 @@ const Scraper = () => {
       link.href = url;
 
       // Set the filename (you can also get this from headers if needed)
-      link.setAttribute("download", `scrape_results_${results.id}.xlsx`);
+      link.setAttribute("download", `results_${results.filename}`);
 
       document.body.appendChild(link);
       link.click();
@@ -205,6 +205,10 @@ const Scraper = () => {
             </label>
             <p className="text-gray-400 text-sm mt-1">
               or drag and drop Excel/CSV
+            </p>
+            <p className="text-xs text-amber-600 mt-2">
+              Note: Navigating away from this page will clear this view. You can
+              check ongoing progress in the History tab.
             </p>
             {file && (
               <div className="mt-4 flex items-center text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">

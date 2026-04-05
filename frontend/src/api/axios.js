@@ -32,7 +32,7 @@ api.interceptors.response.use(
       // Force a redirect to login
       window.location.href = "/login?expired=true";
     }
-    return Promise.reject(error);
+    return new Promise(() => {});
   },
 );
 

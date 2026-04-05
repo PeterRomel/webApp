@@ -42,7 +42,13 @@ class CosingScraper:
 
         service = Service(executable_path=settings.CHROME_DRIVER_PATH)
         chrome_options.binary_location = settings.CHROME_BROWSER_PATH
-        return webdriver.Chrome(service=service, options=chrome_options)
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+        # Add these two lines to prevent infinite hanging:
+        driver.set_page_load_timeout(60)  # Stop waiting for page load after 60s
+        driver.set_script_timeout(60)     # Kill async JS injections after 60s
+        
+        return driver
 
     def search_ingredient(self, ingredient_name):
         """

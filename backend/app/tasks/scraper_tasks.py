@@ -141,5 +141,4 @@ def merge_and_save_results(all_chunk_results, job_id: int):
         
     except Exception as e:
         APP_LOGGER.exception(f"Job {job_id}: Failed to save merged results: {e}")
-        APP_LOGGER.exception(f"Job {job_id}: Failed to save merged results: {e}")
         _set_job_failed(job_id, "Scraping completed, but failed to save results to the database.")

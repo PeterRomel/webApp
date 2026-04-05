@@ -40,6 +40,8 @@ def get_current_user_id(
     except redis.exceptions.ConnectionError:
         # If Redis is down, log it but don't block the user from accessing the app
         APP_LOGGER.warning("Redis is unreachable. Skipping blacklist check.")
+    except redis.exceptions.RedisError as e:
+        APP_LOGGER.warning(f"Redis issue. Skipping blacklist check: {e}")
 
     # 3. STRICT DB CHECK: Does this user still exist?
     user = session.get(User, user_id)
