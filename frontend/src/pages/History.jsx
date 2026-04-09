@@ -181,57 +181,83 @@ const History = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {jobs.map((job) => (
-                  <tr key={job.id}>
+                  <tr
+                    key={job.id}
+                    className="hover:bg-gray-50/50 transition-colors"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(job.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {job.filename}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          job.status === "completed"
-                            ? "bg-green-100 text-green-800"
-                            : job.status === "pending" ||
-                                job.status === "processing"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {job.status.toUpperCase()}
-                      </span>
+
+                    {/* 1. STATUS COLUMN: Now holds both the Badge AND the Error Message */}
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col items-start gap-1.5">
+                        <span
+                          className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                            job.status === "completed"
+                              ? "bg-green-100 text-green-800"
+                              : job.status === "pending" ||
+                                  job.status === "processing"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {job.status.toUpperCase()}
+                        </span>
+                        {/* Render the error message right below the failed badge */}
+                        {job.status === "failed" && job.error_message && (
+                          <span
+                            className="text-xs text-red-500 max-w-[200px] truncate"
+                            title={job.error_message}
+                          >
+                            {job.error_message}
+                          </span>
+                        )}
+                      </div>
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {job.result_count} items
                     </td>
-                    <td className="px-6 py-4 text-right space-x-3">
-                      {job.status === "completed" && (
-                        <>
-                          <button
-                            onClick={() => openDetails(job)}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="View Data"
-                          >
-                            <Eye className="w-5 h-5 inline" />
-                          </button>
-                          <button
-                            onClick={() => handleDownload(job.id, job.filename)}
-                            className="text-green-600 hover:text-green-900"
-                            title="Download Excel"
-                          >
-                            <Download className="w-5 h-5 inline" />
-                          </button>
-                        </>
-                      )}
-                      {job.status === "failed" && job.error_message && (
-                        <p
-                          className="text-xs text-red-500 mt-1 max-w-xs truncate"
-                          title={job.error_message}
-                        >
-                          {job.error_message}
-                        </p>
-                      )}
+
+                    {/* 2. ACTIONS COLUMN: Strictly for buttons or subtle text */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end space-x-3 min-h-[24px]">
+                        {job.status === "completed" && job.result_count > 0 ? (
+                          <>
+                            <button
+                              onClick={() => openDetails(job)}
+                              className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors hover:bg-blue-50"
+                              title="View Data"
+                            >
+                              <Eye className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleDownload(job.id, job.filename)
+                              }
+                              className="text-green-600 hover:text-green-900 p-1 rounded transition-colors hover:bg-green-50"
+                              title="Download Excel"
+                            >
+                              <Download className="w-5 h-5" />
+                            </button>
+                          </>
+                        ) : job.status === "completed" &&
+                          job.result_count === 0 ? (
+                          // Replaced the clunky badge with subtle, italicized text
+                          <span className="text-xs italic text-gray-400 mr-2">
+                            Empty
+                          </span>
+                        ) : job.status === "pending" ||
+                          job.status === "processing" ? (
+                          // Optional: Show a subtle spinner if it's currently running
+                          <Loader2 className="w-4 h-4 text-gray-300 animate-spin mr-2" />
+                        ) : null}
+                        {/* Failed jobs will simply show nothing in the actions column */}
+                      </div>
                     </td>
                   </tr>
                 ))}

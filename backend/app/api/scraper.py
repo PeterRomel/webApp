@@ -5,7 +5,9 @@ import uuid
 import shutil
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import StreamingResponse
+import tempfile
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 from sqlmodel import Session
 from app.db.engine import get_session
 from app.models.scraper import ScrapeJob
@@ -20,16 +22,24 @@ UPLOAD_DIR = settings.UPLOAD_DIR
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post("/upload")
-def upload_ingredients_file(
+async def upload_ingredients_file(
     file: UploadFile = File(...), 
     session: Session = Depends(get_session),
-    current_user_id: int = Depends(get_current_user_id) # Token check!
+    current_user_id: int = Depends(get_current_user_id)
 ):
-    # 1. Basic Validation
+    # Check file size without reading the whole file into memory
+    file.file.seek(0, 2) # Go to end of file
+    file_size = file.file.tell() # Get current position (size)
+    await file.seek(0) # Go back to beginning
+
+    if file_size > 50 * 1024 * 1024: # 50 MB
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 50MB.")
+    
+    # Basic Validation
     if not file.filename.lower().endswith(('.xlsx', '.xlsm', '.xls', '.csv')):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload Excel or CSV.")
 
-    # 2. Save file with a unique name to prevent overwriting
+    # Save file with a unique name to prevent overwriting
     file_id = str(uuid.uuid4())
     file_extension = os.path.splitext(file.filename)[1]
     saved_path = os.path.join(UPLOAD_DIR, f"{file_id}{file_extension}")
@@ -37,13 +47,13 @@ def upload_ingredients_file(
     with open(saved_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # 3. Create Job record in Database
+    # Create Job record in Database
     new_job = ScrapeJob(filename=file.filename, status="pending", user_id=current_user_id)
     session.add(new_job)
     session.commit()
     session.refresh(new_job)
 
-    # 4. Trigger Celery Task
+    # Trigger Celery Task
     master_process_file.delay(new_job.id, saved_path)
 
     return {"job_id": new_job.id, "message": "Scraping task started in background"}
@@ -92,18 +102,19 @@ def download_results(
     if not job.results:
         raise HTTPException(status_code=400, detail="No data was found during scraping. Nothing to download.")
 
-    # 1. Convert the JSON results in the DB back to a DataFrame
     df = pd.DataFrame(job.results)
-
-    # 2. Save to a "Bytes" buffer (this stays in RAM, not on your disk!)
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Scrape Results')
-    output.seek(0)
-
-    # 3. Stream the file to the user
-    safe_filename = job.filename.replace('"', '').replace('\n', '').replace('\r', '')
-    headers = {
-        'Content-Disposition': f'attachment; filename="results_{safe_filename}"'
-    }
-    return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    
+    # Create a temporary file on disk (not RAM)
+    fd, path = tempfile.mkstemp(suffix=".xlsx")
+    with os.fdopen(fd, 'wb') as f:
+        with pd.ExcelWriter(f, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Scrape Results')
+            
+    safe_filename = job.filename.replace('"', '').replace('\n', '')
+    
+    # Send the file, and delete it from disk immediately after sending
+    return FileResponse(
+        path=path, 
+        filename=f"results_{safe_filename}",
+        background=BackgroundTask(os.remove, path) # Deletes file after download
+    )

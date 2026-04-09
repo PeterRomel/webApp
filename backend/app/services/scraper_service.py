@@ -251,3 +251,10 @@ class CosingScraper:
     def close(self):
         if self.driver:
             self.driver.quit()
+
+    def __del__(self):
+        try:
+            if self.driver:
+                self.driver.quit()
+        except Exception:
+            pass

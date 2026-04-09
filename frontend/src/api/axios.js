@@ -31,8 +31,14 @@ api.interceptors.response.use(
 
       // Force a redirect to login
       window.location.href = "/login?expired=true";
+
+      // We ONLY swallow the error if we are actively redirecting them
+      return new Promise(() => {});
     }
-    return new Promise(() => {});
+
+    // For ALL OTHER ERRORS (like your 400 Download Error),
+    // we MUST reject the promise so your catch() blocks work!
+    return Promise.reject(error);
   },
 );
 
