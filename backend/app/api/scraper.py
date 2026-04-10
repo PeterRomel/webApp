@@ -6,7 +6,9 @@ import shutil
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 import tempfile
-from fastapi.responses import FileResponse
+import asyncio
+import json
+from fastapi.responses import FileResponse, StreamingResponse
 from starlette.background import BackgroundTask
 from sqlmodel import Session
 from app.db.engine import get_session
@@ -118,3 +120,49 @@ def download_results(
         filename=f"results_{safe_filename}",
         background=BackgroundTask(os.remove, path) # Deletes file after download
     )
+
+@router.get("/stream/{job_id}")
+async def stream_job_status(
+    job_id: int, 
+    session: Session = Depends(get_session),
+    current_user_id: int = Depends(get_current_user_id) # Uses your normal, secure auth!
+):
+    # 1. Verify the job exists and belongs to the user
+    job = session.get(ScrapeJob, job_id)
+    if not job or job.user_id != current_user_id:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # 2. Define an asynchronous generator
+    # This function will run in a loop, pausing for 2 seconds, checking the DB, 
+    # and "yielding" (pushing) data to the frontend.
+    async def event_generator():
+        from app.core.logger_config import APP_LOGGER
+        try:
+            while True:
+                # Expire the session so SQLAlchemy is forced to get fresh data from the DB
+                session.expire(job)
+                session.refresh(job)
+
+                # Create the payload we want to send
+                payload = {
+                    "status": job.status,
+                    "error_message": job.error_message
+                }
+                
+                # SSE requires a very specific text format: "data: <your_string>\n\n"
+                yield f"data: {json.dumps(payload)}\n\n"
+
+                # If the job is finished or failed, break the loop to close the connection
+                if job.status in ["completed", "failed"]:
+                    break
+                
+                # Pause for 2 seconds before checking again (saves CPU)
+                await asyncio.sleep(2)
+                
+        except asyncio.CancelledError:
+            # If the user closes their browser tab or clicks "Cancel", FastAPI catches it here
+            APP_LOGGER.info(f"SSE connection closed by client for job {job_id}")
+
+    # 3. Return the StreamingResponse
+    # media_type="text/event-stream" tells the browser to keep the connection open!
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

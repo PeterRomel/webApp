@@ -1,3 +1,4 @@
+import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { useState, useEffect, useRef } from "react";
 import {
   Upload,
@@ -40,7 +41,8 @@ const Scraper = () => {
   const [tablePage, setTablePage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
-  const pollInterval = useRef(null);
+  // This acts as our network "kill switch"
+  const abortControllerRef = useRef(null);
 
   // --- HELPER: Reset the view to upload a new file ---
   const resetToIdle = () => {
@@ -51,10 +53,10 @@ const Scraper = () => {
     setTaskId(null);
     setTablePage(1);
 
-    // Stop polling the current job so it doesn't overwrite the screen
-    // The Celery backend will continue processing it in the background!
-    if (pollInterval.current) {
-      clearInterval(pollInterval.current);
+    // Pull the kill switch if they click "Run in background & Start new job"
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
   };
 
@@ -74,33 +76,69 @@ const Scraper = () => {
     setError(null);
   };
 
-  const pollStatus = (jobId) => {
-    if (pollInterval.current) clearInterval(pollInterval.current);
+  const startSecureSSE = (jobId) => {
+    // 1. Get token and build URL
+    const token = sessionStorage.getItem("token");
+    const baseUrl = import.meta.env.DEV ? "http://127.0.0.1:8000" : "";
+    const url = `${baseUrl}/api/scrape/stream/${jobId}`;
 
-    pollInterval.current = setInterval(async () => {
-      try {
-        const response = await api.get(`/api/scrape/status/${jobId}`);
-        if (response.data.status === "completed") {
-          setStatus("COMPLETED");
-          setResults(response.data);
-          clearInterval(pollInterval.current);
-        } else if (response.data.status === "failed") {
-          const backendError =
-            response.data.error_message ||
-            "Scraping failed due to an unknown error.";
-          setError(backendError);
+    // 2. Initialize the Kill Switch for this specific connection
+    abortControllerRef.current = new AbortController();
+
+    // 3. Start the stream
+    fetchEventSource(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "text/event-stream",
+      },
+      signal: abortControllerRef.current.signal, // Attach the kill switch!
+
+      // 4. Listen for messages pushed from FastAPI
+      async onmessage(event) {
+        // Parse the JSON yielded by the backend
+        const data = JSON.parse(event.data);
+
+        if (data.status === "completed") {
+          // Job is done! Pull the kill switch to close the pipe.
+          abortControllerRef.current.abort();
+
+          // Now, make ONE normal Axios call to get the heavy results data
+          try {
+            const response = await api.get(`/api/scrape/status/${jobId}`);
+            setStatus("COMPLETED");
+            setResults(response.data);
+          } catch (err) {
+            setError("Job completed, but failed to load results.");
+            setStatus("IDLE");
+          }
+        } else if (data.status === "failed") {
+          // Job failed! Pull the kill switch.
+          abortControllerRef.current.abort();
+          setError(
+            data.error_message || "Scraping failed due to an unknown error.",
+          );
           setStatus("IDLE");
-          clearInterval(pollInterval.current);
         }
-      } catch (err) {
-        console.error("Polling error:", err);
-      }
-    }, 10000);
+        // If status is "pending" or "processing", we do nothing and let the stream stay open!
+      },
+
+      // 5. Handle Network Errors
+      onerror(err) {
+        console.error("SSE Connection error:", err);
+        // Throwing the error tells the library to STOP trying to reconnect
+        // if the server crashes or the token is invalid.
+        throw err;
+      },
+    });
   };
 
   useEffect(() => {
+    // Cleanup function when component unmounts
     return () => {
-      if (pollInterval.current) clearInterval(pollInterval.current);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     };
   }, []);
 
@@ -156,7 +194,7 @@ const Scraper = () => {
       if (response.data && response.data.job_id) {
         setTaskId(response.data.job_id);
         setStatus("PROCESSING");
-        pollStatus(response.data.job_id);
+        startSecureSSE(response.data.job_id);
       } else {
         throw new Error("Backend didn't return a job_id");
       }
