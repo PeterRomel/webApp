@@ -77,24 +77,37 @@ const Scraper = () => {
   };
 
   const startSecureSSE = (jobId) => {
-    // 1. Get token and build URL
+    // Get token and build URL
     const token = sessionStorage.getItem("token");
     const baseUrl = import.meta.env.DEV ? "http://127.0.0.1:8000" : "";
     const url = `${baseUrl}/api/scrape/stream/${jobId}`;
 
-    // 2. Initialize the Kill Switch for this specific connection
+    // Initialize the Kill Switch for this specific connection
     abortControllerRef.current = new AbortController();
 
-    // 3. Start the stream
+    // Start the stream
     fetchEventSource(url, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "text/event-stream",
       },
-      signal: abortControllerRef.current.signal, // Attach the kill switch!
+      signal: abortControllerRef.current.signal,
 
-      // 4. Listen for messages pushed from FastAPI
+      // Check if token expired while connecting!
+      async onopen(response) {
+        if (response.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "/login?expired=true";
+          return; // Stop execution
+        }
+        if (!response.ok) {
+          throw new Error(`Server returned HTTP ${response.status}`);
+        }
+      },
+
+      // Listen for messages pushed from FastAPI
       async onmessage(event) {
         // Parse the JSON yielded by the backend
         const data = JSON.parse(event.data);
@@ -123,12 +136,14 @@ const Scraper = () => {
         // If status is "pending" or "processing", we do nothing and let the stream stay open!
       },
 
-      // 5. Handle Network Errors
+      // Handle Network Errors & Handle disconnects gracefully
       onerror(err) {
         console.error("SSE Connection error:", err);
-        // Throwing the error tells the library to STOP trying to reconnect
-        // if the server crashes or the token is invalid.
-        throw err;
+        setError(
+          "Lost connection to server. Please check the History tab for your results.",
+        );
+        setStatus("IDLE");
+        throw err; // Throws error so it stops trying to reconnect
       },
     });
   };
@@ -287,16 +302,15 @@ const Scraper = () => {
             </p>
 
             {/* NEW: Button to background the task and start a new one */}
-            <button
-              onClick={resetToIdle}
-              className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm text-sm font-medium"
-            >
-              Run in background & Start new job{" "}
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </button>
-            <p className="text-xs text-gray-400 mt-3">
-              You can download these results later from the History tab.
-            </p>
+            {status === "PROCESSING" && (
+              <button
+                onClick={resetToIdle}
+                className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm text-sm font-medium"
+              >
+                Run in background & Start new job{" "}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </button>
+            )}
           </div>
         )}
 

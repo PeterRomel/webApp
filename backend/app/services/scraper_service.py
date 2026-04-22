@@ -136,42 +136,46 @@ class CosingScraper:
 
             # B. Load Page & Wait for Auto-Search
             self.driver.get(start_url)
-            time.sleep(5)
 
-            # C. Intercept Request via Logs
+            # C. Intercept Request via Logs (Dynamic Polling up to 15s)
             captured_body = None
             captured_headers = None
             
-            logs = self.driver.get_log("performance")
-            for entry in logs:
-                try:
-                    message = json.loads(entry["message"])["message"]
-                    if message["method"] == "Network.requestWillBeSent":
-                        params = message["params"]
-                        request = params["request"]
-                        if "search-api/prod/rest/search" in request["url"] and request["method"] == "POST":
-                            
-                            # Get Post Data
-                            if "postData" in request and captured_body_checker in request["postData"]:
-                                captured_body = request["postData"]
-                            else:
-                                # Sometimes body is too large, need explicit retrieval
-                                try:
-                                    data = self.driver.execute_cdp_cmd('Network.getRequestPostData', {'requestId': params['requestId']})
-                                    captured_body = data['postData']
-                                    if not captured_body_checker in captured_body:
-                                        captured_body = None
+            for _ in range(15):  # Try for 15 seconds
+                logs = self.driver.get_log("performance")
+                for entry in logs:
+                    try:
+                        message = json.loads(entry["message"])["message"]
+                        if message["method"] == "Network.requestWillBeSent":
+                            params = message["params"]
+                            request = params["request"]
+                            if "search-api/prod/rest/search" in request["url"] and request["method"] == "POST":
+                                
+                                if "postData" in request and captured_body_checker in request["postData"]:
+                                    captured_body = request["postData"]
+                                else:
+                                    try:
+                                        data = self.driver.execute_cdp_cmd('Network.getRequestPostData', {'requestId': params['requestId']})
+                                        captured_body = data['postData']
+                                        if not captured_body_checker in captured_body:
+                                            captured_body = None
+                                            continue
+                                    except:
                                         continue
-                                except:
-                                    continue
 
-                            captured_headers = request["headers"]
-                            break
-                except:
-                    continue
+                                captured_headers = request["headers"]
+                                break
+                    except:
+                        continue
+                
+                # If we caught the network data, break out of the 15-second waiting loop!
+                if captured_body:
+                    break
+                    
+                time.sleep(1) # Wait 1 second before checking logs again
 
             if not captured_body:
-                APP_LOGGER.error(f"Could not intercept network signature for Annex {annex_roman}")
+                APP_LOGGER.error(f"Could not intercept network signature for Annex {annex_roman} after 15 seconds.")
                 return {}
 
             # D. Replay Loop using Captured Signature
@@ -251,6 +255,7 @@ class CosingScraper:
     def close(self):
         if self.driver:
             self.driver.quit()
+            self.driver = None
 
     def __del__(self):
         try:

@@ -57,7 +57,7 @@ const Register = () => {
       errors.password = "Must contain at least one lowercase letter.";
     } else if (!/\d/.test(p)) {
       errors.password = "Must contain at least one digit.";
-    } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(p)) {
+    } else if (!/[^A-Za-z0-9]/.test(p)) {
       errors.password = "Must contain a special character.";
     }
 

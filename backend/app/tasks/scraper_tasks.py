@@ -131,6 +131,10 @@ def merge_and_save_results(all_chunk_results, job_id: int):
     try:
         with Session(engine) as session:
             job = session.get(ScrapeJob, job_id)
+            if not job:
+                APP_LOGGER.warning(f"Job {job_id} completed, but was deleted from the database. Discarding results.")
+                _set_job_failed(job_id, "Scraping completed, but was deleted from the database.")
+                return
             job.status = "completed"
             job.results = final_results
             job.result_count = len(final_results)

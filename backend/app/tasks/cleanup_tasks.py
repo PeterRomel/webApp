@@ -20,12 +20,23 @@ def clear_old_data():
                 os.remove(file_path)
     
     with Session(engine) as session:
-        # --- 1. Delete Jobs older than 30 days ---
-        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        # 1. Catch jobs stuck in processing for more than 12 hours
+        twelve_hours_ago = datetime.now(timezone.utc) - timedelta(hours=12)
+        statement = select(ScrapeJob).where(
+            ScrapeJob.status.in_(["pending", "processing"]),
+            ScrapeJob.created_at < twelve_hours_ago
+        )
+        stuck_jobs = session.exec(statement).all()
         
-        # This deletes everything in one single SQL command
-        statement = delete(ScrapeJob).where(ScrapeJob.created_at < thirty_days_ago)
-        session.exec(statement)
+        for job in stuck_jobs:
+            job.status = "failed"
+            job.error_message = "Job timed out or worker crashed unexpectedly."
+            session.add(job)
+
+        # 2. Delete Jobs older than 30 days (Your existing code)
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        delete_stmt = delete(ScrapeJob).where(ScrapeJob.created_at < thirty_days_ago)
+        session.exec(delete_stmt)
             
         session.commit()
-        return f"Cleaned all old jobs before {thirty_days_ago}."
+        return f"Cleaned {len(stuck_jobs)} stuck jobs, and deleted jobs older than 30 days."

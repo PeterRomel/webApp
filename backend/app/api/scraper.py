@@ -9,9 +9,10 @@ import tempfile
 import asyncio
 import json
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.concurrency import run_in_threadpool
 from starlette.background import BackgroundTask
 from sqlmodel import Session
-from app.db.engine import get_session
+from app.db.engine import get_session, engine
 from app.models.scraper import ScrapeJob
 from app.tasks.scraper_tasks import master_process_file
 from app.api.deps import get_current_user_id
@@ -22,6 +23,11 @@ router = APIRouter(prefix="/scrape", tags=["Scraper"])
 # Directory to store uploaded files temporarily
 UPLOAD_DIR = settings.UPLOAD_DIR
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+def save_upload_to_disk(upload_file_obj, destination_path):
+    with open(destination_path, "wb") as buffer:
+        shutil.copyfileobj(upload_file_obj, buffer)
+
 
 @router.post("/upload")
 async def upload_ingredients_file(
@@ -46,8 +52,8 @@ async def upload_ingredients_file(
     file_extension = os.path.splitext(file.filename)[1]
     saved_path = os.path.join(UPLOAD_DIR, f"{file_id}{file_extension}")
     
-    with open(saved_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Send the blocking save operation to a background thread
+    await run_in_threadpool(save_upload_to_disk, file.file, saved_path)
 
     # Create Job record in Database
     new_job = ScrapeJob(filename=file.filename, status="pending", user_id=current_user_id)
@@ -77,6 +83,7 @@ def get_job_status(
     return {
         "id": job.id,
         "status": job.status,
+        "filename": job.filename,
         "created_at": job.created_at,
         "error_message": job.error_message,
         "result_count": len(job.results) if job.results else 0,
@@ -127,42 +134,38 @@ async def stream_job_status(
     session: Session = Depends(get_session),
     current_user_id: int = Depends(get_current_user_id) # Uses your normal, secure auth!
 ):
-    # 1. Verify the job exists and belongs to the user
-    job = session.get(ScrapeJob, job_id)
-    if not job or job.user_id != current_user_id:
-        raise HTTPException(status_code=404, detail="Job not found")
+    # 1. Create a helper function outside the generator
+    def _check_job_status(job_id_to_check: int):
+        with Session(engine) as db:
+            current_job = db.get(ScrapeJob, job_id_to_check)
+            if not current_job:
+                return {"status": "failed", "error_message": "Job was deleted or no longer exists."}
+            return {
+                "status": current_job.status,
+                "error_message": current_job.error_message
+            }
 
-    # 2. Define an asynchronous generator
-    # This function will run in a loop, pausing for 2 seconds, checking the DB, 
-    # and "yielding" (pushing) data to the frontend.
+    # 2. Update the generator
     async def event_generator():
         from app.core.logger_config import APP_LOGGER
         try:
             while True:
-                # Expire the session so SQLAlchemy is forced to get fresh data from the DB
-                session.expire(job)
-                session.refresh(job)
-
-                # Create the payload we want to send
-                payload = {
-                    "status": job.status,
-                    "error_message": job.error_message
-                }
+                # Run the sync DB check in a background thread
+                payload = await run_in_threadpool(_check_job_status, job_id)
                 
-                # SSE requires a very specific text format: "data: <your_string>\n\n"
+                # Send data to frontend
                 yield f"data: {json.dumps(payload)}\n\n"
 
-                # If the job is finished or failed, break the loop to close the connection
-                if job.status in ["completed", "failed"]:
+                # Check if we should close the connection
+                if payload["status"] in ["completed", "failed"]:
                     break
                 
-                # Pause for 2 seconds before checking again (saves CPU)
+                # Pause safely
                 await asyncio.sleep(2)
                 
         except asyncio.CancelledError:
-            # If the user closes their browser tab or clicks "Cancel", FastAPI catches it here
             APP_LOGGER.info(f"SSE connection closed by client for job {job_id}")
-
+    
     # 3. Return the StreamingResponse
     # media_type="text/event-stream" tells the browser to keep the connection open!
     return StreamingResponse(event_generator(), media_type="text/event-stream")
