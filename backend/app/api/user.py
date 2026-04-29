@@ -1,6 +1,6 @@
 # app/api/user.py
 import time
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select, func
 from sqlalchemy.orm import defer
@@ -98,8 +98,8 @@ def login(
 
 @router.get("/history")
 def get_user_history(
-    page: int = 1,
-    limit: int = 20,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100), # Maximum 100 items per page
     current_user_id: int = Depends(get_current_user_id), 
     session: Session = Depends(get_session)
 ):
