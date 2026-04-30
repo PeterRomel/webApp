@@ -51,6 +51,11 @@ def master_process_file(job_id: int, file_path: str):
         # Filter and Convert the column to a simple Python list
         ingredients_list = input_df.loc[mask, 'Ingredient'].tolist()
 
+        # ROW LIMIT CHECK
+        MAX_ROWS = 5000
+        if len(ingredients_list) > MAX_ROWS:
+            raise ValueError(f"File contains {len(ingredients_list)} ingredients. The maximum allowed is {MAX_ROWS} per job. Please split your file and try again.")
+
         # Define Chunk Size (e.g., 50 ingredients per task)
         CHUNK_SIZE = 50
         

@@ -64,7 +64,7 @@ const Scraper = () => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
 
-    const MAX_FILE_SIZE = 52428800; // 50MB
+    const MAX_FILE_SIZE = 5242880; // 5MB
     if (selectedFile.size > MAX_FILE_SIZE) {
       setError("File is too large. Please upload a file smaller than 50MB.");
       setFile(null);
@@ -237,7 +237,7 @@ const Scraper = () => {
         </h1>
         <p className="text-gray-500 mb-8">
           Upload your Excel file containing INCI names to begin the automated
-          extraction.
+          extraction. Maximum 5,000 ingredients (5MB).
         </p>
 
         {/* Upload Zone */}
@@ -249,7 +249,7 @@ const Scraper = () => {
               const droppedFile = e.dataTransfer.files[0];
               if (!droppedFile) return;
 
-              if (droppedFile.size > 52428800) {
+              if (droppedFile.size > 5242880) {
                 setError(
                   "File is too large. Please drop a file smaller than 50MB.",
                 );

@@ -40,7 +40,7 @@ async def upload_ingredients_file(
     file_size = file.file.tell() # Get current position (size)
     await file.seek(0) # Go back to beginning
 
-    if file_size > 50 * 1024 * 1024: # 50 MB
+    if file_size > 5 * 1024 * 1024: # 50 MB
         raise HTTPException(status_code=413, detail="File too large. Maximum size is 50MB.")
     
     # Basic Validation
