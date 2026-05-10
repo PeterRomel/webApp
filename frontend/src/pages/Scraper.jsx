@@ -138,6 +138,8 @@ const Scraper = () => {
 
       // Handle Network Errors & Handle disconnects gracefully
       onerror(err) {
+        // If we intentionally closed the connection, don't show an error!
+        if (err.name === "AbortError") return;
         console.error("SSE Connection error:", err);
         setError(
           "Lost connection to server. Please check the History tab for your results.",
