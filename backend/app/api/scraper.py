@@ -169,3 +169,25 @@ async def stream_job_status(
     # 3. Return the StreamingResponse
     # media_type="text/event-stream" tells the browser to keep the connection open!
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@router.delete("/{job_id}")
+def delete_job(
+    job_id: int,
+    session: Session = Depends(get_session),
+    current_user_id: int = Depends(get_current_user_id) # Require auth token
+):
+    job = session.get(ScrapeJob, job_id)
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # BEST PRACTICE: SECURITY CHECK
+    # Ensure the user requesting the delete actually owns the job
+    if job.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You do not have permission to delete this job")
+
+    # Delete the job from the database
+    session.delete(job)
+    session.commit()
+    
+    return {"detail": "Job deleted successfully"}

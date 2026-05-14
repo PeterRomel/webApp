@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Trash2,
 } from "lucide-react";
 
 // --- MINI COMPONENT: Touch-Friendly Expandable Cell ---
@@ -133,6 +134,35 @@ const History = () => {
     }
   };
 
+  // --- DELETE JOB ---
+  const handleDeleteJob = async (jobId, filename) => {
+    // BEST PRACTICE: Always confirm destructive actions!
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the job for "${filename}"?\nThis cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      // 1. Send the delete request to FastAPI
+      await api.delete(`/api/scrape/${jobId}`);
+
+      // 2. Handle Pagination Math gracefully
+      if (jobs.length === 1 && currentPage > 1) {
+        // If they just deleted the LAST item on the current page, go back one page
+        setCurrentPage((prev) => prev - 1);
+      } else {
+        // Otherwise, simply refresh the current page to pull the updated list
+        fetchHistory(currentPage);
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert(
+        err.response?.data?.detail ||
+          "Failed to delete the job. Please try again.",
+      );
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER */}
@@ -226,7 +256,8 @@ const History = () => {
                     {/* 2. ACTIONS COLUMN: Strictly for buttons or subtle text */}
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end space-x-3 min-h-[24px]">
-                        {job.status === "completed" && job.result_count > 0 ? (
+                        {/* Status specific indicators */}
+                        {job.status === "completed" && job.result_count > 0 && (
                           <>
                             <button
                               onClick={() => openDetails(job)}
@@ -245,18 +276,27 @@ const History = () => {
                               <Download className="w-5 h-5" />
                             </button>
                           </>
-                        ) : job.status === "completed" &&
-                          job.result_count === 0 ? (
-                          // Replaced the clunky badge with subtle, italicized text
-                          <span className="text-xs italic text-gray-400 mr-2">
-                            Empty
-                          </span>
-                        ) : job.status === "pending" ||
-                          job.status === "processing" ? (
-                          // Optional: Show a subtle spinner if it's currently running
+                        )}
+                        {job.status === "completed" &&
+                          job.result_count === 0 && (
+                            <span className="text-xs italic text-gray-400 mr-2">
+                              Empty
+                            </span>
+                          )}
+                        {(job.status === "pending" ||
+                          job.status === "processing") && (
                           <Loader2 className="w-4 h-4 text-gray-300 animate-spin mr-2" />
-                        ) : null}
-                        {/* Failed jobs will simply show nothing in the actions column */}
+                        )}
+                        {/* DELTE BUTTON: Available for ALL statuses */}
+                        <div className="w-px h-5 bg-gray-200 mx-1"></div>{" "}
+                        {/* Subtle divider */}
+                        <button
+                          onClick={() => handleDeleteJob(job.id, job.filename)}
+                          className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors hover:bg-red-50"
+                          title="Delete Job"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
