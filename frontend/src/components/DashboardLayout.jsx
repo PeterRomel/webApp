@@ -20,16 +20,19 @@ const DashboardLayout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
-      {/* Sidebar */}
+    // 1. h-screen forces exact window height, overflow-hidden stops global scrolling
+    <div className="h-screen w-screen bg-gray-100 flex overflow-hidden">
+      {/* Sidebar - Added shrink-0 so it maintains its width */}
       <aside
-        className={`${isSidebarOpen ? "w-64" : "w-20"} bg-slate-900 text-white transition-all duration-300 flex flex-col`}
+        className={`${
+          isSidebarOpen ? "w-64" : "w-20"
+        } bg-slate-900 text-white transition-all duration-300 flex flex-col shrink-0 z-20`}
       >
-        <div className="p-6 text-xl font-bold border-b border-slate-800">
+        <div className="p-6 text-xl font-bold border-b border-slate-800 shrink-0">
           {isSidebarOpen ? "CoSing Scraper" : "CS"}
         </div>
 
-        <nav className="flex-1 mt-6 px-4 space-y-2">
+        <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -42,29 +45,34 @@ const DashboardLayout = ({ children }) => {
                     : "text-slate-400 hover:bg-slate-800 hover:text-white"
                 }`}
               >
-                <item.icon className="w-5 h-5" />
+                <item.icon className="w-5 h-5 shrink-0" />
                 {isSidebarOpen && (
-                  <span className="ml-3 font-medium">{item.name}</span>
+                  <span className="ml-3 font-medium whitespace-nowrap">
+                    {item.name}
+                  </span>
                 )}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800 shrink-0">
           <button
             onClick={handleLogout}
             className="flex items-center w-full p-3 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
           >
-            <LogOut className="w-5 h-5" />
-            {isSidebarOpen && <span className="ml-3 font-medium">Logout</span>}
+            <LogOut className="w-5 h-5 shrink-0" />
+            {isSidebarOpen && (
+              <span className="ml-3 font-medium whitespace-nowrap">Logout</span>
+            )}
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
-        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-8">
+      {/* Main Content Area Wrapper */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header - Added shrink-0 to prevent squishing, z-10 for shadow */}
+        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-8 shrink-0 z-10 relative">
           <button
             onClick={() => setSidebarOpen(!isSidebarOpen)}
             className="text-gray-500 hover:text-gray-700"
@@ -85,7 +93,10 @@ const DashboardLayout = ({ children }) => {
           </div>
         </header>
 
-        <main className="p-8 overflow-y-auto">{children}</main>
+        {/* 2. Scrollable Content Area - flex-1 takes remaining height, overflow-y-auto traps the scrolling here */}
+        <main className="flex-1 p-8 overflow-y-auto bg-gray-100 relative">
+          {children}
+        </main>
       </div>
     </div>
   );
