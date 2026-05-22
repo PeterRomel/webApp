@@ -189,123 +189,133 @@ const History = () => {
           </div>
         ) : (
           <>
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    File Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Results
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {jobs.map((job) => (
-                  <tr
-                    key={job.id}
-                    className="hover:bg-gray-50/50 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(job.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {job.filename}
-                    </td>
+            {/* 1. WRAPPER: Creates a scrolling box strictly for the table. 
+                 The calc() ensures it perfectly fits between the header and pagination. */}
+            <div className="overflow-y-auto max-h-[calc(100vh-250px)]">
+              <table className="min-w-full divide-y divide-gray-200">
+                {/* 2. THEAD: Added 'sticky top-0 z-10'. 
+                     Added 'outline' so the bottom border travels with the header. */}
+                <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm outline outline-1 outline-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      File Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Results
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {jobs.map((job) => (
+                    <tr
+                      key={job.id}
+                      className="hover:bg-gray-50/50 transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(job.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {job.filename}
+                      </td>
 
-                    {/* 1. STATUS COLUMN: Now holds both the Badge AND the Error Message */}
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col items-start gap-1.5">
-                        <span
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                            job.status === "completed"
-                              ? "bg-green-100 text-green-800"
-                              : job.status === "pending" ||
-                                  job.status === "processing"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {job.status.toUpperCase()}
-                        </span>
-                        {/* Render the error message right below the failed badge */}
-                        {job.status === "failed" && job.error_message && (
+                      {/* 1. STATUS COLUMN: Now holds both the Badge AND the Error Message */}
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col items-start gap-1.5">
                           <span
-                            className="text-xs text-red-500 max-w-[200px] truncate"
-                            title={job.error_message}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
+                              job.status === "completed"
+                                ? "bg-green-100 text-green-800"
+                                : job.status === "pending" ||
+                                    job.status === "processing"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                            }`}
                           >
-                            {job.error_message}
+                            {job.status.toUpperCase()}
                           </span>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {job.result_count} items
-                    </td>
-
-                    {/* 2. ACTIONS COLUMN: Strictly for buttons or subtle text */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end space-x-3 min-h-[24px]">
-                        {/* Status specific indicators */}
-                        {job.status === "completed" && job.result_count > 0 && (
-                          <>
-                            <button
-                              onClick={() => openDetails(job)}
-                              className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors hover:bg-blue-50"
-                              title="View Data"
+                          {/* Render the error message right below the failed badge */}
+                          {job.status === "failed" && job.error_message && (
+                            <span
+                              className="text-xs text-red-500 max-w-[200px] truncate"
+                              title={job.error_message}
                             >
-                              <Eye className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleDownload(job.id, job.filename)
-                              }
-                              className="text-green-600 hover:text-green-900 p-1 rounded transition-colors hover:bg-green-50"
-                              title="Download Excel"
-                            >
-                              <Download className="w-5 h-5" />
-                            </button>
-                          </>
-                        )}
-                        {job.status === "completed" &&
-                          job.result_count === 0 && (
-                            <span className="text-xs italic text-gray-400 mr-2">
-                              Empty
+                              {job.error_message}
                             </span>
                           )}
-                        {(job.status === "pending" ||
-                          job.status === "processing") && (
-                          <Loader2 className="w-4 h-4 text-gray-300 animate-spin mr-2" />
-                        )}
-                        {/* DELTE BUTTON: Available for ALL statuses */}
-                        <div className="w-px h-5 bg-gray-200 mx-1"></div>{" "}
-                        {/* Subtle divider */}
-                        <button
-                          onClick={() => handleDeleteJob(job.id, job.filename)}
-                          className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors hover:bg-red-50"
-                          title="Delete Job"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        </div>
+                      </td>
 
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {job.result_count} items
+                      </td>
+
+                      {/* 2. ACTIONS COLUMN: Strictly for buttons or subtle text */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end space-x-3 min-h-[24px]">
+                          {/* Status specific indicators */}
+                          {job.status === "completed" &&
+                            job.result_count > 0 && (
+                              <>
+                                <button
+                                  onClick={() => openDetails(job)}
+                                  className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors hover:bg-blue-50"
+                                  title="View Data"
+                                >
+                                  <Eye className="w-5 h-5" />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleDownload(job.id, job.filename)
+                                  }
+                                  className="text-green-600 hover:text-green-900 p-1 rounded transition-colors hover:bg-green-50"
+                                  title="Download Excel"
+                                >
+                                  <Download className="w-5 h-5" />
+                                </button>
+                              </>
+                            )}
+                          {job.status === "completed" &&
+                            job.result_count === 0 && (
+                              <span className="text-xs italic text-gray-400 mr-2">
+                                Empty
+                              </span>
+                            )}
+                          {(job.status === "pending" ||
+                            job.status === "processing") && (
+                            <Loader2 className="w-4 h-4 text-gray-300 animate-spin mr-2" />
+                          )}
+                          {/* DELTE BUTTON: Available for ALL statuses */}
+                          <div className="w-px h-5 bg-gray-200 mx-1"></div>{" "}
+                          {/* Subtle divider */}
+                          <button
+                            onClick={() =>
+                              handleDeleteJob(job.id, job.filename)
+                            }
+                            className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors hover:bg-red-50"
+                            title="Delete Job"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>{" "}
+            {/* 3. END OF NEW SCROLLABLE WRAPPER */}
             {/* HISTORY PAGINATION CONTROLS */}
-            <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+            {/* Added 'relative z-20' so the shadow of the table doesn't overlap the buttons */}
+            <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between relative z-20">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
