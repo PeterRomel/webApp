@@ -320,30 +320,32 @@ const Scraper = () => {
         {status === "COMPLETED" && results && (
           <div className="space-y-6 animate-in fade-in duration-500">
             {/* Summary Header */}
-            <div className="flex items-center justify-between bg-green-50 p-6 rounded-xl border border-green-100">
+            {/* FIX 1: Changed to flex-col on mobile, flex-row on desktop (md:), added gap-4 for spacing */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-green-50 p-4 md:p-6 rounded-xl border border-green-100">
               <div className="flex items-center">
-                <CheckCircle className="w-8 h-8 text-green-500 mr-4" />
+                <CheckCircle className="w-8 h-8 text-green-500 mr-4 shrink-0" />
                 <div>
                   <h3 className="text-lg font-bold text-green-900">
                     Scraping Complete!
                   </h3>
                   <p className="text-green-700 text-sm">
                     Found {results.result_count} items from{" "}
-                    <strong>{results.filename}</strong>.
+                    <strong className="break-all">{results.filename}</strong>.
                   </p>
                 </div>
               </div>
 
-              <div className="flex space-x-3">
+              {/* FIX 2: Made the button container full width on mobile, stacked buttons on tiny screens */}
+              <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
                 <button
                   onClick={resetToIdle}
-                  className="px-4 py-2 bg-white border border-green-200 text-green-700 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium shadow-sm"
+                  className="w-full sm:w-auto justify-center px-4 py-2 bg-white border border-green-200 text-green-700 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium shadow-sm"
                 >
                   Start New Job
                 </button>
                 <button
                   onClick={handleDownload}
-                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm text-sm font-medium"
+                  className="flex w-full sm:w-auto items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm text-sm font-medium"
                 >
                   <FileText className="w-4 h-4 mr-2" />
                   Download Excel
@@ -353,14 +355,14 @@ const Scraper = () => {
 
             {/* Data Preview Table (History-style Pagination & Sticky Header) */}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+              <div className="px-4 md:px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <h4 className="font-semibold text-gray-700">Data Preview</h4>
                 <span className="text-sm text-gray-500">
                   Showing page {tablePage} of {totalPages}
                 </span>
               </div>
 
-              <div className="overflow-x-auto overflow-y-auto max-h-[50vh]">
+              <div className="overflow-x-auto overflow-y-auto max-h-[50vh] w-full">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                     <tr>

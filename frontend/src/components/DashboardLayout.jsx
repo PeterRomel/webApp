@@ -1,13 +1,17 @@
 import { useAuth } from "../hooks/useAuth";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, History, LogOut, User, Menu } from "lucide-react";
+import { LayoutDashboard, History, LogOut, User, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+
+  // Desktop Sidebar State (Shrinks to icons)
+  const [isDesktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  // Mobile Sidebar State (Slides in from the left)
+  const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const navigation = [
     { name: "Scraper", href: "/", icon: LayoutDashboard },
@@ -20,16 +24,40 @@ const DashboardLayout = ({ children }) => {
   };
 
   return (
-    // 1. h-screen forces exact window height, overflow-hidden stops global scrolling
-    <div className="h-screen w-screen bg-gray-100 flex overflow-hidden">
-      {/* Sidebar - Added shrink-0 so it maintains its width */}
+    <div className="h-screen w-screen bg-gray-100 flex overflow-hidden relative">
+      {/* --- MOBILE OVERLAY BACKDROP --- */}
+      {/* This darkens the background on phones when the menu is open */}
+      {isMobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 md:hidden transition-opacity"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* --- SIDEBAR --- */}
       <aside
-        className={`${
-          isSidebarOpen ? "w-64" : "w-20"
-        } bg-slate-900 text-white transition-all duration-300 flex flex-col shrink-0 z-20`}
+        className={`
+          fixed inset-y-0 left-0 z-30 flex flex-col bg-slate-900 text-white shadow-xl
+          transform transition-transform duration-300 ease-in-out
+          md:relative md:translate-x-0 md:shrink-0
+          ${isMobileSidebarOpen ? "translate-x-0 w-64" : "-translate-x-full"}
+          ${isDesktopSidebarOpen ? "md:w-64" : "md:w-20"}
+        `}
       >
-        <div className="p-6 text-xl font-bold border-b border-slate-800 shrink-0">
-          {isSidebarOpen ? "CoSing Scraper" : "CS"}
+        <div className="p-4 md:p-6 text-xl font-bold border-b border-slate-800 shrink-0 flex justify-between items-center">
+          <span>
+            {isDesktopSidebarOpen && !isMobileSidebarOpen
+              ? "CoSing Scraper"
+              : "CS"}
+          </span>
+
+          {/* Mobile Close Button */}
+          <button
+            className="md:hidden p-1 text-slate-400 hover:text-white"
+            onClick={() => setMobileSidebarOpen(false)}
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
         <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto">
@@ -39,6 +67,7 @@ const DashboardLayout = ({ children }) => {
               <Link
                 key={item.name}
                 to={item.href}
+                onClick={() => setMobileSidebarOpen(false)} // Auto-close on mobile click
                 className={`flex items-center p-3 rounded-lg transition-colors ${
                   isActive
                     ? "bg-blue-600 text-white"
@@ -46,7 +75,8 @@ const DashboardLayout = ({ children }) => {
                 }`}
               >
                 <item.icon className="w-5 h-5 shrink-0" />
-                {isSidebarOpen && (
+                {/* Show text if desktop sidebar is open OR if we are on mobile */}
+                {(isDesktopSidebarOpen || isMobileSidebarOpen) && (
                   <span className="ml-3 font-medium whitespace-nowrap">
                     {item.name}
                   </span>
@@ -62,39 +92,50 @@ const DashboardLayout = ({ children }) => {
             className="flex items-center w-full p-3 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
           >
             <LogOut className="w-5 h-5 shrink-0" />
-            {isSidebarOpen && (
+            {(isDesktopSidebarOpen || isMobileSidebarOpen) && (
               <span className="ml-3 font-medium whitespace-nowrap">Logout</span>
             )}
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area Wrapper */}
+      {/* --- MAIN CONTENT AREA --- */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header - Added shrink-0 to prevent squishing, z-10 for shadow */}
-        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-8 shrink-0 z-10 relative">
+        {/* Header */}
+        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 shrink-0 z-10 relative">
+          {/* Mobile Hamburger Button */}
           <button
-            onClick={() => setSidebarOpen(!isSidebarOpen)}
-            className="text-gray-500 hover:text-gray-700"
+            onClick={() => setMobileSidebarOpen(true)}
+            className="text-gray-500 hover:text-gray-700 md:hidden p-2 -ml-2"
           >
             <Menu className="w-6 h-6" />
           </button>
 
-          <div className="flex items-center space-x-4">
+          {/* Desktop Hamburger Button */}
+          <button
+            onClick={() => setDesktopSidebarOpen(!isDesktopSidebarOpen)}
+            className="text-gray-500 hover:text-gray-700 hidden md:block"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+
+          <div className="flex items-center space-x-3 md:space-x-4 ml-auto">
             <div className="text-right">
               <p className="text-sm font-semibold text-gray-900">
                 {user?.username}
               </p>
-              <p className="text-xs text-gray-500">{user?.email}</p>
+              <p className="text-xs text-gray-500 hidden sm:block">
+                {user?.email}
+              </p>
             </div>
-            <div className="bg-blue-100 p-2 rounded-full text-blue-600">
+            <div className="bg-blue-100 p-2 rounded-full text-blue-600 shrink-0">
               <User className="w-5 h-5" />
             </div>
           </div>
         </header>
 
-        {/* 2. Scrollable Content Area - flex-1 takes remaining height, overflow-y-auto traps the scrolling here */}
-        <main className="flex-1 p-8 overflow-y-auto bg-gray-100 relative">
+        {/* Content Box - Adjusted padding for mobile */}
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 relative">
           {children}
         </main>
       </div>

@@ -166,8 +166,10 @@ const History = () => {
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Scraping History</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800">
+          Scraping History
+        </h1>
         <button
           onClick={() => fetchHistory(currentPage)}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center text-sm text-gray-600"
@@ -191,7 +193,7 @@ const History = () => {
           <>
             {/* 1. WRAPPER: Creates a scrolling box strictly for the table. 
                  The calc() ensures it perfectly fits between the header and pagination. */}
-            <div className="overflow-y-auto max-h-[calc(100vh-250px)]">
+            <div className="overflow-y-auto overflow-x-auto w-full max-h-[calc(100vh-200px)]">
               <table className="min-w-full divide-y divide-gray-200">
                 {/* 2. THEAD: Added 'sticky top-0 z-10'. 
                      Added 'outline' so the bottom border travels with the header. */}
@@ -315,7 +317,7 @@ const History = () => {
             {/* 3. END OF NEW SCROLLABLE WRAPPER */}
             {/* HISTORY PAGINATION CONTROLS */}
             {/* Added 'relative z-20' so the shadow of the table doesn't overlap the buttons */}
-            <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between relative z-20">
+            <div className="bg-gray-50 px-4 md:px-6 py-3 border-t border-gray-200 flex flex-wrap gap-2 items-center justify-between relative z-20">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
