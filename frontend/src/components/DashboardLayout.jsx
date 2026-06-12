@@ -54,7 +54,7 @@ const DashboardLayout = ({ children }) => {
       {/* This darkens the background on phones when the menu is open */}
       {isMobileSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-20 md:hidden transition-opacity"
+          className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
@@ -62,7 +62,7 @@ const DashboardLayout = ({ children }) => {
       {/* --- SIDEBAR --- */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-30 flex flex-col bg-slate-900 text-white shadow-xl
+          fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-white shadow-xl
           transform transition-transform duration-300 ease-in-out
           md:relative md:translate-x-0 md:shrink-0
           ${isMobileSidebarOpen ? "translate-x-0 w-64" : "-translate-x-full"}
@@ -127,7 +127,7 @@ const DashboardLayout = ({ children }) => {
       {/* --- MAIN CONTENT AREA --- */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 shrink-0 z-10 relative">
+        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 shrink-0 z-30 relative">
           {/* Mobile Hamburger Button */}
           <button
             onClick={() => setMobileSidebarOpen(true)}
