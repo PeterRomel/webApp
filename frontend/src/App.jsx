@@ -5,6 +5,8 @@ import Register from "./pages/Register";
 import DashboardLayout from "./components/DashboardLayout";
 import Scraper from "./pages/Scraper";
 import History from "./pages/History";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 
 // A helper component to protect our private pages
 const ProtectedRoute = ({ children }) => {
@@ -47,6 +49,30 @@ function App() {
             <ProtectedRoute>
               <DashboardLayout>
                 <History />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Read-Only Profile Page */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Profile />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Settings Page */}
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <Settings />
               </DashboardLayout>
             </ProtectedRoute>
           }

@@ -1,6 +1,6 @@
 # app/api/user.py
 import time
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select, func
 from sqlalchemy.orm import defer
@@ -130,6 +130,15 @@ def get_user_history(
             "limit": limit
         }
     }
+
+@router.post("/me/avatar", response_model=UserRead)
+def upload_avatar(
+    file: UploadFile = File(...),
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session)
+):
+    service = UserService(session)
+    return service.update_avatar(user_id, file)
 
 @router.post("/logout")
 def logout(

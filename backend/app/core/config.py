@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     })
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     UPLOAD_DIR: str = str(Path(__file__).resolve().parent.parent.parent / "uploads")
+    AVATAR_DIR: str = str(Path(__file__).resolve().parent.parent.parent / "uploads" / "avatars")
     CHROME_DRIVER_PATH: str = "/usr/bin/chromedriver"
     CHROME_BROWSER_PATH: str = "/usr/bin/chromium-browser" 
     ANNEX_START_URL: str =  "https://ec.europa.eu/growth/tools-databases/cosing/reference/annexes/list/"

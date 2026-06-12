@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timezone
 from typing import Optional, List, TYPE_CHECKING
 from pydantic import EmailStr, field_validator
 from sqlmodel import SQLModel, Field, Relationship
@@ -34,6 +35,8 @@ class UserBase(SQLModel):
     # EmailStr automatically validates 'name@domain.com'
     email: EmailStr = Field(index=True, unique=True)
     username: str = Field(min_length=1)
+    profile_picture: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("username")
     @classmethod

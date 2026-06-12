@@ -1,7 +1,17 @@
 import { useAuth } from "../hooks/useAuth";
+import { getImageUrl } from "../utils/helpers";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, History, LogOut, User, Menu, X } from "lucide-react";
-import { useState } from "react";
+import {
+  LayoutDashboard,
+  History,
+  LogOut,
+  User,
+  Menu,
+  X,
+  ChevronDown,
+  Settings,
+} from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 
 const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -12,10 +22,25 @@ const DashboardLayout = ({ children }) => {
   const [isDesktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   // Mobile Sidebar State (Slides in from the left)
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // Dropdown State
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown if user clicks outside of it
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const navigation = [
     { name: "Scraper", href: "/", icon: LayoutDashboard },
     { name: "History", href: "/history", icon: History },
+    { name: "Settings", href: "/settings", icon: Settings },
   ];
 
   const handleLogout = async () => {
@@ -119,18 +144,79 @@ const DashboardLayout = ({ children }) => {
             <Menu className="w-6 h-6" />
           </button>
 
-          <div className="flex items-center space-x-3 md:space-x-4 ml-auto">
-            <div className="text-right">
-              <p className="text-sm font-semibold text-gray-900">
-                {user?.username}
-              </p>
-              <p className="text-xs text-gray-500 hidden sm:block">
-                {user?.email}
-              </p>
-            </div>
-            <div className="bg-blue-100 p-2 rounded-full text-blue-600 shrink-0">
-              <User className="w-5 h-5" />
-            </div>
+          {/* USER DROPDOWN MENU */}
+          <div className="relative ml-auto" ref={dropdownRef}>
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center space-x-3 md:space-x-4 hover:bg-gray-50 p-2 rounded-lg transition-colors focus:outline-none"
+            >
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-semibold text-gray-900">
+                  {user?.username}
+                </p>
+                <p className="text-xs text-gray-500">{user?.email}</p>
+              </div>
+
+              {/* Show Avatar if it exists, otherwise show default User icon */}
+              {user?.profile_picture ? (
+                <img
+                  src={getImageUrl(user.profile_picture)}
+                  alt="Profile"
+                  className="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm"
+                />
+              ) : (
+                <div className="bg-blue-100 p-2.5 rounded-full text-blue-600 shrink-0">
+                  <User className="w-5 h-5" />
+                </div>
+              )}
+
+              <ChevronDown
+                className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {/* Dropdown Panel */}
+            {isDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="px-4 py-2 border-b border-gray-50 sm:hidden">
+                  {/* Mobile only: show name/email inside dropdown since it's hidden in the header */}
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {user?.username}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {user?.email}
+                  </p>
+                </div>
+
+                <Link
+                  to="/profile"
+                  onClick={() => setIsDropdownOpen(false)}
+                  className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                >
+                  <User className="w-4 h-4 mr-3 text-gray-400" /> My Profile
+                </Link>
+
+                <Link
+                  to="/history"
+                  onClick={() => setIsDropdownOpen(false)}
+                  className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                >
+                  <History className="w-4 h-4 mr-3 text-gray-400" /> History
+                </Link>
+
+                <div className="h-px bg-gray-100 my-1 mx-2"></div>
+
+                <button
+                  onClick={() => {
+                    setIsDropdownOpen(false);
+                    handleLogout();
+                  }}
+                  className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut className="w-4 h-4 mr-3 text-red-400" /> Logout
+                </button>
+              </div>
+            )}
           </div>
         </header>
 

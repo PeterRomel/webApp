@@ -1,9 +1,11 @@
 # app/main.py
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from app.api import user, scraper
 from app.db.engine import engine
 from sqlmodel import SQLModel
@@ -76,6 +78,14 @@ app.add_middleware(
     allow_methods=["*"], # Allow all methods (GET, POST, etc.)
     allow_headers=["*"], # Allow all headers
 )
+
+from app.core.config import settings
+
+# Make sure the directory actually exists before mounting it
+os.makedirs(settings.AVATAR_DIR, exist_ok=True)
+
+# Mount the avatars folder so the frontend can display the images via URL
+app.mount("/api/avatars", StaticFiles(directory=settings.AVATAR_DIR), name="avatars")
 
 # --- ROUTES ---
 app.include_router(user.router, prefix="/api")

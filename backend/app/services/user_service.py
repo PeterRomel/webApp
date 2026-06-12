@@ -1,8 +1,12 @@
 # app/services/user_service.py
-from fastapi import HTTPException, status
+import os
+import uuid
+import shutil
+from fastapi import HTTPException, status, UploadFile
 from sqlmodel import Session, select
 from app.models.user import User, UserCreate, UserUpdate
 from app.core.security import hash_password, verify_password
+from app.core.config import settings
 
 class UserService:
     def __init__(self, session: Session):
@@ -82,5 +86,52 @@ class UserService:
 
     def delete(self, user_id: int):
         db_user = self.get_by_id(user_id)
+        
+        if db_user.profile_picture:
+            filename = db_user.profile_picture.split("/")[-1]
+            filepath = os.path.join(settings.AVATAR_DIR, filename)
+            if os.path.exists(filepath):
+                os.remove(filepath)
         self.session.delete(db_user)
         self.session.commit()
+
+    def update_avatar(self, user_id: int, file: UploadFile) -> User:
+        # 1. Validate file type
+        allowed_types = ["image/jpeg", "image/png", "image/webp"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Invalid file type. Only JPG, PNG, and WebP are allowed."
+            )
+        
+        db_user = self.get_by_id(user_id)
+        if not db_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail="User not found"
+            )
+
+        # 2. Create a unique filename
+        # file.filename could be "my_picture.JPG", so we extract the ".JPG" and make it lowercase
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = os.path.join(settings.AVATAR_DIR, unique_filename)
+
+        # 3. Save the new image to disk
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # 4. Delete the OLD avatar from disk if they had one
+        if db_user.profile_picture:
+            old_filename = db_user.profile_picture.split("/")[-1]
+            old_filepath = os.path.join(settings.AVATAR_DIR, old_filename)
+            if os.path.exists(old_filepath):
+                os.remove(old_filepath)
+
+        # 5. Save the URL path to the database
+        db_user.profile_picture = f"/api/avatars/{unique_filename}"
+        self.session.add(db_user)
+        self.session.commit()
+        self.session.refresh(db_user)
+
+        return db_user
