@@ -186,6 +186,12 @@ def delete_job(
     if job.user_id != current_user_id:
         raise HTTPException(status_code=403, detail="You do not have permission to delete this job")
 
+    if job.status in ["pending", "processing"]:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot delete a job that is currently running. Please wait for it to finish."
+        )
+
     # Delete the job from the database
     session.delete(job)
     session.commit()

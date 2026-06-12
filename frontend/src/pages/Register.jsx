@@ -62,10 +62,9 @@ const Register = () => {
     }
 
     // 4. Confirm Password Match
-    if (
-      formData.confirmPassword &&
-      formData.password !== formData.confirmPassword
-    ) {
+    if (!formData.confirmPassword) {
+      errors.confirmPassword = "Confirm password is required.";
+    } else if (formData.password !== formData.confirmPassword) {
       errors.confirmPassword = "Passwords do not match.";
     }
 

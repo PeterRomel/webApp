@@ -295,18 +295,30 @@ const History = () => {
                             job.status === "processing") && (
                             <Loader2 className="w-4 h-4 text-gray-300 animate-spin mr-2" />
                           )}
-                          {/* DELTE BUTTON: Available for ALL statuses */}
-                          <div className="w-px h-5 bg-gray-200 mx-1"></div>{" "}
-                          {/* Subtle divider */}
-                          <button
-                            onClick={() =>
-                              handleDeleteJob(job.id, job.filename)
-                            }
-                            className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors hover:bg-red-50"
-                            title="Delete Job"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+                          {/* DELTE BUTTON: Only available if completed or failed */}
+                          <div className="w-px h-5 bg-gray-200 mx-1"></div>
+
+                          {job.status !== "pending" &&
+                          job.status !== "processing" ? (
+                            <button
+                              onClick={() =>
+                                handleDeleteJob(job.id, job.filename)
+                              }
+                              className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors hover:bg-red-50"
+                              title="Delete Job"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          ) : (
+                            // Show a disabled, grayed-out trash can when running
+                            <button
+                              disabled
+                              className="text-gray-200 p-1 rounded cursor-not-allowed"
+                              title="Cannot delete while running"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
