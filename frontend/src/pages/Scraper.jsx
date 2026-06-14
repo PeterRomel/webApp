@@ -97,8 +97,8 @@ const Scraper = () => {
       // Check if token expired while connecting!
       async onopen(response) {
         if (response.status === 401) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          sessionStorage.removeItem("token");
+          sessionStorage.removeItem("user");
           window.location.href = "/login?expired=true";
           return; // Stop execution
         }
@@ -132,8 +132,13 @@ const Scraper = () => {
             data.error_message || "Scraping failed due to an unknown error.",
           );
           setStatus("IDLE");
+        } else if (data.status === "cancelled") {
+          // <-- ADDED THIS BLOCK
+          abortControllerRef.current.abort();
+          setError("This job was cancelled.");
+          setStatus("IDLE");
         }
-        // If status is "pending" or "processing", we do nothing and let the stream stay open!
+        // If status is "pending", we do nothing and let the stream stay open!
       },
 
       // Handle Network Errors & Handle disconnects gracefully

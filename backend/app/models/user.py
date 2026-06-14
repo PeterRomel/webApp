@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 # --- REUSABLE VALIDATION LOGIC ---
 
+
 def validate_password_strength(v: str) -> str:
     """Standard security complexity check for new/updated passwords."""
     if len(v) < 8:
@@ -23,13 +24,16 @@ def validate_password_strength(v: str) -> str:
         raise ValueError("Password must contain at least one special character.")
     return v
 
+
 def validate_not_empty(field_name: str, value: str) -> str:
     """Ensures strings are not just empty whitespace."""
     if not value.strip():
         raise ValueError(f"{field_name} cannot be empty or only whitespace.")
     return value
 
+
 # --- MODELS ---
+
 
 class UserBase(SQLModel):
     # EmailStr automatically validates 'name@domain.com'
@@ -43,17 +47,19 @@ class UserBase(SQLModel):
     def check_username(cls, v: str):
         return validate_not_empty("Username", v)
 
+
 class User(UserBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     hashed_password: str
-    
+
     jobs: List["ScrapeJob"] = Relationship(
-        back_populates="owner", 
-        sa_relationship_kwargs={"passive_deletes": True}
+        back_populates="owner", sa_relationship_kwargs={"passive_deletes": True}
     )
+
 
 class UserRead(UserBase):
     id: int
+
 
 class UserCreate(UserBase):
     password: str
@@ -62,6 +68,7 @@ class UserCreate(UserBase):
     @classmethod
     def check_password(cls, v: str):
         return validate_password_strength(v)
+
 
 """ 
 class UserLogin(SQLModel):
@@ -75,6 +82,8 @@ class UserLogin(SQLModel):
         # We don't check 'strength' on login, just that it isn't empty
         return validate_not_empty("Field", v)
  """
+
+
 class UserUpdate(SQLModel):
     username: Optional[str] = Field(default=None, min_length=1)
     password: Optional[str] = Field(default=None)

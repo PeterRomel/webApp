@@ -68,6 +68,14 @@ const Settings = () => {
   const handleFileChange = async (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB Limit
+        alert(
+          "This image is too large. Please select a file smaller than 5MB.",
+        );
+        e.target.value = null;
+        return;
+      }
       const imageDataUrl = await new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target.result);

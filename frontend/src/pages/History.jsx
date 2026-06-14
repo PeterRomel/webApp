@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Loader2,
   Trash2,
+  XCircle,
 } from "lucide-react";
 
 // --- MINI COMPONENT: Touch-Friendly Expandable Cell ---
@@ -163,6 +164,21 @@ const History = () => {
     }
   };
 
+  // --- CANCEL JOB ---
+  const handleCancelJob = async (jobId, filename) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to cancel the job for "${filename}"?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.post(`/api/scrape/${jobId}/cancel`);
+      fetchHistory(currentPage); // Refresh to show the "cancelled" status
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to cancel the job.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER */}
@@ -229,30 +245,32 @@ const History = () => {
                         {job.filename}
                       </td>
 
-                      {/* 1. STATUS COLUMN: Now holds both the Badge AND the Error Message */}
+                      {/* 1. STATUS COLUMN */}
                       <td className="px-6 py-4">
                         <div className="flex flex-col items-start gap-1.5">
                           <span
                             className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
                               job.status === "completed"
                                 ? "bg-green-100 text-green-800"
-                                : job.status === "pending" ||
-                                    job.status === "processing"
+                                : job.status === "pending"
                                   ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
+                                  : job.status === "failed"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-gray-100 text-gray-600"
                             }`}
                           >
                             {job.status.toUpperCase()}
                           </span>
-                          {/* Render the error message right below the failed badge */}
-                          {job.status === "failed" && job.error_message && (
-                            <span
-                              className="text-xs text-red-500 max-w-[200px] truncate"
-                              title={job.error_message}
-                            >
-                              {job.error_message}
-                            </span>
-                          )}
+                          {(job.status === "failed" ||
+                            job.status === "cancelled") &&
+                            job.error_message && (
+                              <span
+                                className="text-xs text-red-500 max-w-[200px] truncate"
+                                title={job.error_message}
+                              >
+                                {job.error_message}
+                              </span>
+                            )}
                         </div>
                       </td>
 
@@ -260,10 +278,9 @@ const History = () => {
                         {job.result_count} items
                       </td>
 
-                      {/* 2. ACTIONS COLUMN: Strictly for buttons or subtle text */}
+                      {/* 2. ACTIONS COLUMN */}
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end space-x-3 min-h-[24px]">
-                          {/* Status specific indicators */}
                           {job.status === "completed" &&
                             job.result_count > 0 && (
                               <>
@@ -285,36 +302,37 @@ const History = () => {
                                 </button>
                               </>
                             )}
+
                           {job.status === "completed" &&
                             job.result_count === 0 && (
                               <span className="text-xs italic text-gray-400 mr-2">
                                 Empty
                               </span>
                             )}
-                          {(job.status === "pending" ||
-                            job.status === "processing") && (
+
+                          {job.status === "pending" && (
                             <Loader2 className="w-4 h-4 text-gray-300 animate-spin mr-2" />
                           )}
-                          {/* DELTE BUTTON: Only available if completed or failed */}
+
                           <div className="w-px h-5 bg-gray-200 mx-1"></div>
 
-                          {job.status !== "pending" &&
-                          job.status !== "processing" ? (
+                          {job.status === "pending" ? (
+                            <button
+                              onClick={() =>
+                                handleCancelJob(job.id, job.filename)
+                              }
+                              className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors hover:bg-red-50"
+                              title="Cancel Job"
+                            >
+                              <XCircle className="w-5 h-5" />
+                            </button>
+                          ) : (
                             <button
                               onClick={() =>
                                 handleDeleteJob(job.id, job.filename)
                               }
                               className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors hover:bg-red-50"
                               title="Delete Job"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          ) : (
-                            // Show a disabled, grayed-out trash can when running
-                            <button
-                              disabled
-                              className="text-gray-200 p-1 rounded cursor-not-allowed"
-                              title="Cannot delete while running"
                             >
                               <Trash2 className="w-5 h-5" />
                             </button>

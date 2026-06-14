@@ -15,11 +15,11 @@ redis_client = redis.Redis(**settings.REDIS_URL_BLACKLIST)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/users/login")
 
+
 def get_current_user_id(
-    token: str = Depends(oauth2_scheme),
-    session: Session = Depends(get_session)
+    token: str = Depends(oauth2_scheme), session: Session = Depends(get_session)
 ) -> int:
-    
+
     # 1. PROCEED WITH NORMAL DECODING
     payload = decode_access_token(token)
     if not payload or "sub" not in payload:
@@ -27,7 +27,7 @@ def get_current_user_id(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
         )
-        
+
     user_id = int(payload["sub"])
 
     # 2. CHECK THE BLACKLIST FIRST
@@ -48,7 +48,7 @@ def get_current_user_id(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User account no longer exists. Please log in again."
+            detail="User account no longer exists. Please log in again.",
         )
 
     return user_id

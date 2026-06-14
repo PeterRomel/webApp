@@ -11,6 +11,7 @@ from app.db.engine import engine
 from sqlmodel import SQLModel
 from app.core.logger_config import APP_LOGGER
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup code
@@ -18,13 +19,15 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown code (if any) can go here
 
+
 app = FastAPI(title="Peter's Webapp", lifespan=lifespan)
+
 
 # --- CUSTOM EXCEPTION HANDLER ---
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """
-    Catch Pydantic validation errors and remove the 'input' field 
+    Catch Pydantic validation errors and remove the 'input' field
     to prevent leaking sensitive data like passwords.
     """
     errors = []
@@ -45,11 +48,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={"detail": errors},
     )
 
+
 # --- GLOBAL EXCEPTION HANDLER ---
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """
-    Catch ALL unhandled exceptions. This prevents the server from crashing silently 
+    Catch ALL unhandled exceptions. This prevents the server from crashing silently
     and ensures the full traceback goes through our custom APP_LOGGER for systemd.
     """
     # .exception() automatically captures and prints the full traceback
@@ -58,7 +62,9 @@ async def global_exception_handler(request: Request, exc: Exception):
     # Return a generic 500 error to the client without leaking internal code secrets
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "An internal server error occurred. Please try again later."},
+        content={
+            "detail": "An internal server error occurred. Please try again later."
+        },
     )
 
 
@@ -75,8 +81,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"], # Allow all headers
+    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers
 )
 
 from app.core.config import settings
