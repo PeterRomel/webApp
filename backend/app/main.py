@@ -41,7 +41,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         errors.append(clean_error)
 
     # Log the full error for your eyes only
-    APP_LOGGER.error(f"Validation Error: {exc.errors()}")
+    APP_LOGGER.error(f"Validation Error: {errors}")
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

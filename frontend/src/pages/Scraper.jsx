@@ -256,6 +256,20 @@ const Scraper = () => {
               const droppedFile = e.dataTransfer.files[0];
               if (!droppedFile) return;
 
+              // --- Validate file extension on Drag & Drop ---
+              const validExtensions = [".xlsx", ".xlsm", ".xls", ".csv"];
+              const fileExtension = droppedFile.name
+                .substring(droppedFile.name.lastIndexOf("."))
+                .toLowerCase();
+              if (!validExtensions.includes(fileExtension)) {
+                setError(
+                  "Invalid file type. Please drop an Excel or CSV file.",
+                );
+                setFile(null);
+                return;
+              }
+
+              // --- Validate file size on Drag & Drop ---
               if (droppedFile.size > 5242880) {
                 setError(
                   "File is too large. Please drop a file smaller than 50MB.",
@@ -348,13 +362,15 @@ const Scraper = () => {
                 >
                   Start New Job
                 </button>
-                <button
-                  onClick={handleDownload}
-                  className="flex w-full sm:w-auto items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm text-sm font-medium"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  Download Excel
-                </button>
+                {results.result_count > 0 && (
+                  <button
+                    onClick={handleDownload}
+                    className="flex w-full sm:w-auto items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm text-sm font-medium"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Download Excel
+                  </button>
+                )}
               </div>
             </div>
 
