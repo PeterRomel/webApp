@@ -10,6 +10,7 @@ celery_app = Celery(
     include=[
         "app.tasks.scraper_tasks",
         "app.tasks.cleanup_tasks",  # Include your new cleanup file
+        "app.tasks.inci_tasks",
     ],
 )
 

@@ -10,7 +10,8 @@ if TYPE_CHECKING:
 
 class ScrapeJob(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    status: str = Field(default="pending")  # pending, processing, completed, failed
+    job_type: str = Field(default="scraper")  # "scraper" or "inci"
+    status: str = Field(default="pending")  # pending,cancelled, completed, failed
     filename: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # Store results as a JSON blob or a link to a new file

@@ -1,5 +1,6 @@
 import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Upload,
   FileText,
@@ -8,15 +9,15 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowRight,
+  Sparkles,
+  Send,
+  Download,
 } from "lucide-react";
 import api from "../api/axios";
 
-// --- MINI COMPONENT: Touch-Friendly Expandable Cell ---
 const ExpandableCell = ({ content }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-
   if (!content) return <span className="text-gray-300 italic">null</span>;
-
   return (
     <div
       onClick={() => setIsExpanded(!isExpanded)}
@@ -30,30 +31,26 @@ const ExpandableCell = ({ content }) => {
   );
 };
 
-const Scraper = () => {
+const GetInci = () => {
   const [file, setFile] = useState(null);
-  const [status, setStatus] = useState("IDLE"); // IDLE, UPLOADING, PROCESSING, COMPLETED
-  const [taskId, setTaskId] = useState(null);
+  const [status, setStatus] = useState("IDLE");
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
+  const [isForwarding, setIsForwarding] = useState(false);
 
-  // Pagination State for the Results Table
   const [tablePage, setTablePage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
-  // This acts as our network "kill switch"
   const abortControllerRef = useRef(null);
+  const navigate = useNavigate();
 
-  // --- HELPER: Reset the view to upload a new file ---
   const resetToIdle = () => {
     setStatus("IDLE");
     setError(null);
     setFile(null);
     setResults(null);
-    setTaskId(null);
     setTablePage(1);
 
-    // Pull the kill switch if they click "Run in background & Start new job"
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -64,28 +61,23 @@ const Scraper = () => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
 
-    const MAX_FILE_SIZE = 5242880; // 5MB
-    if (selectedFile.size > MAX_FILE_SIZE) {
-      setError("File is too large. Please upload a file smaller than 50MB.");
+    if (selectedFile.size > 5242880) {
+      setError("File is too large. Please upload a file smaller than 5MB.");
       setFile(null);
       e.target.value = null;
       return;
     }
-
     setFile(selectedFile);
     setError(null);
   };
 
   const startSecureSSE = (jobId) => {
-    // Get token and build URL
     const token = sessionStorage.getItem("token");
     const baseUrl = import.meta.env.DEV ? "http://127.0.0.1:8000" : "";
     const url = `${baseUrl}/api/scrape/stream/${jobId}`;
 
-    // Initialize the Kill Switch for this specific connection
     abortControllerRef.current = new AbortController();
 
-    // Start the stream
     fetchEventSource(url, {
       method: "GET",
       headers: {
@@ -93,30 +85,21 @@ const Scraper = () => {
         Accept: "text/event-stream",
       },
       signal: abortControllerRef.current.signal,
-
-      // Check if token expired while connecting!
       async onopen(response) {
         if (response.status === 401) {
           sessionStorage.removeItem("token");
           sessionStorage.removeItem("user");
           window.location.href = "/login?expired=true";
-          return; // Stop execution
+          return;
         }
-        if (!response.ok) {
+        if (!response.ok)
           throw new Error(`Server returned HTTP ${response.status}`);
-        }
       },
-
-      // Listen for messages pushed from FastAPI
       async onmessage(event) {
-        // Parse the JSON yielded by the backend
         const data = JSON.parse(event.data);
 
         if (data.status === "completed") {
-          // Job is done! Pull the kill switch to close the pipe.
           abortControllerRef.current.abort();
-
-          // Now, make ONE normal Axios call to get the heavy results data
           try {
             const response = await api.get(`/api/scrape/status/${jobId}`);
             setStatus("COMPLETED");
@@ -126,41 +109,31 @@ const Scraper = () => {
             setStatus("IDLE");
           }
         } else if (data.status === "failed") {
-          // Job failed! Pull the kill switch.
           abortControllerRef.current.abort();
           setError(
-            data.error_message || "Scraping failed due to an unknown error.",
+            data.error_message || "Generator failed due to an unknown error.",
           );
           setStatus("IDLE");
         } else if (data.status === "cancelled") {
-          // <-- ADDED THIS BLOCK
           abortControllerRef.current.abort();
           setError("This job was cancelled.");
           setStatus("IDLE");
         }
-        // If status is "pending", we do nothing and let the stream stay open!
       },
-
-      // Handle Network Errors & Handle disconnects gracefully
       onerror(err) {
-        // If we intentionally closed the connection, don't show an error!
         if (err.name === "AbortError") return;
-        console.error("SSE Connection error:", err);
         setError(
-          "Lost connection to server. Please check the History tab for your results.",
+          "Lost connection to server. Please check History for results.",
         );
         setStatus("IDLE");
-        throw err; // Throws error so it stops trying to reconnect
+        throw err;
       },
     });
   };
 
   useEffect(() => {
-    // Cleanup function when component unmounts
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      if (abortControllerRef.current) abortControllerRef.current.abort();
     };
   }, []);
 
@@ -169,37 +142,21 @@ const Scraper = () => {
       const response = await api.get(`/api/scrape/download/${results.id}`, {
         responseType: "blob",
       });
-
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `results_${results.filename}`);
+      link.setAttribute("download", `inci_results_${results.filename}`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("Download failed:", err);
-      let errorMessage = "Could not download the file. Please try again.";
-
-      if (err.response && err.response.data instanceof Blob) {
-        try {
-          const errorText = await err.response.data.text();
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.detail) errorMessage = errorJson.detail;
-        } catch (parseErr) {
-          console.error("Could not parse error blob", parseErr);
-        }
-      } else if (err.response?.data?.detail) {
-        errorMessage = err.response.data.detail;
-      }
-      setError(errorMessage);
+      setError("Could not download the file. Please try again.");
     }
   };
 
-  const startScraping = async () => {
+  const startGeneration = async () => {
     if (!file) return;
-
     setStatus("UPLOADING");
     setError(null);
     setResults(null);
@@ -209,25 +166,36 @@ const Scraper = () => {
     formData.append("file", file);
 
     try {
-      const response = await api.post("/api/scrape/upload", formData, {
+      // NOTE: Hitting the new INCI endpoint
+      const response = await api.post("/api/scrape/upload/inci", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
       if (response.data && response.data.job_id) {
-        setTaskId(response.data.job_id);
         setStatus("PROCESSING");
         startSecureSSE(response.data.job_id);
       } else {
         throw new Error("Backend didn't return a job_id");
       }
     } catch (err) {
-      const msg = err.response?.data?.detail || err.message || "Upload failed";
-      setError(msg);
+      setError(err.response?.data?.detail || "Upload failed");
       setStatus("IDLE");
     }
   };
 
-  // Calculate pagination variables safely
+  // --- THE NEW FORWARD FEATURE ---
+  const forwardToScraper = async () => {
+    setIsForwarding(true);
+    try {
+      await api.post(`/api/scrape/${results.id}/forward-to-scraper`);
+      // We navigate them directly to the History page so they can watch the new Scraper job run!
+      navigate("/history");
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to forward data to scraper.");
+    } finally {
+      setIsForwarding(false);
+    }
+  };
+
   const totalItems = results?.data?.length || 0;
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const currentDataSlice =
@@ -239,16 +207,18 @@ const Scraper = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">
-          Cosing Ingredient Scraper
-        </h1>
+        <div className="flex items-center mb-2">
+          <Sparkles className="w-6 h-6 text-purple-500 mr-2" />
+          <h1 className="text-2xl font-bold text-gray-800">
+            AI INCI Generator
+          </h1>
+        </div>
         <p className="text-gray-500 mb-8">
-          Upload an Excel file with a column named <strong>"Ingredient"</strong>{" "}
-          containing INCI names to begin the automated extraction. Maximum 5,000
-          ingredients (5MB).
+          Upload an Excel file with a column named <strong>"Ingredient"</strong>
+          . The AI will analyze trade names and mixtures and extract the
+          official INCI names. Maximum 5,000 ingredients (5MB).
         </p>
 
-        {/* Upload Zone */}
         {status === "IDLE" && (
           <div
             onDragOver={(e) => e.preventDefault()}
@@ -257,7 +227,6 @@ const Scraper = () => {
               const droppedFile = e.dataTransfer.files[0];
               if (!droppedFile) return;
 
-              // --- Validate file extension on Drag & Drop ---
               const validExtensions = [".xlsx", ".xlsm", ".xls", ".csv"];
               const fileExtension = droppedFile.name
                 .substring(droppedFile.name.lastIndexOf("."))
@@ -269,22 +238,19 @@ const Scraper = () => {
                 setFile(null);
                 return;
               }
-
-              // --- Validate file size on Drag & Drop ---
               if (droppedFile.size > 5242880) {
                 setError(
-                  "File is too large. Please drop a file smaller than 50MB.",
+                  "File is too large. Please drop a file smaller than 5MB.",
                 );
                 setFile(null);
                 return;
               }
-
               setFile(droppedFile);
               setError(null);
             }}
-            className="border-2 border-dashed border-gray-200 rounded-xl p-12 flex flex-col items-center justify-center transition-colors hover:border-blue-400 bg-gray-50/50"
+            className="border-2 border-dashed border-purple-200 rounded-xl p-12 flex flex-col items-center justify-center transition-colors hover:border-purple-400 bg-purple-50/30"
           >
-            <Upload className="w-12 h-12 text-blue-500 mb-4" />
+            <Upload className="w-12 h-12 text-purple-500 mb-4" />
             <input
               type="file"
               id="file-upload"
@@ -294,7 +260,7 @@ const Scraper = () => {
             />
             <label
               htmlFor="file-upload"
-              className="cursor-pointer text-blue-600 font-semibold hover:text-blue-700"
+              className="cursor-pointer text-purple-600 font-semibold hover:text-purple-700"
             >
               Click to upload
             </label>
@@ -309,25 +275,21 @@ const Scraper = () => {
           </div>
         )}
 
-        {/* Processing State */}
         {(status === "UPLOADING" || status === "PROCESSING") && (
-          <div className="py-12 flex flex-col items-center bg-blue-50/50 rounded-xl border border-blue-100">
-            <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+          <div className="py-12 flex flex-col items-center bg-purple-50/50 rounded-xl border border-purple-100">
+            <Loader2 className="w-12 h-12 text-purple-500 animate-spin mb-4" />
             <h3 className="text-lg font-medium text-gray-800">
               {status === "UPLOADING"
                 ? "Sending file to server..."
-                : "Selenium is scraping Cosing..."}
+                : "AI is analyzing materials..."}
             </h3>
             <p className="text-gray-500 text-sm mt-2 mb-6 text-center max-w-sm">
-              This may take a few minutes depending on the number of
-              ingredients. You don't have to wait here!
+              This is very fast, but you can safely run it in the background.
             </p>
-
-            {/* NEW: Button to background the task and start a new one */}
             {status === "PROCESSING" && (
               <button
                 onClick={resetToIdle}
-                className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition-colors shadow-sm text-sm font-medium"
+                className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:text-purple-600 transition-colors shadow-sm text-sm font-medium"
               >
                 Run in background & Start new job{" "}
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -336,46 +298,57 @@ const Scraper = () => {
           </div>
         )}
 
-        {/* Completed State */}
         {status === "COMPLETED" && results && (
           <div className="space-y-6 animate-in fade-in duration-500">
-            {/* Summary Header */}
-            {/* FIX 1: Changed to flex-col on mobile, flex-row on desktop (md:), added gap-4 for spacing */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-green-50 p-4 md:p-6 rounded-xl border border-green-100">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-purple-50 p-4 md:p-6 rounded-xl border border-purple-100">
               <div className="flex items-center">
-                <CheckCircle className="w-8 h-8 text-green-500 mr-4 shrink-0" />
+                <CheckCircle className="w-8 h-8 text-purple-500 mr-4 shrink-0" />
                 <div>
-                  <h3 className="text-lg font-bold text-green-900">
-                    Scraping Complete!
+                  <h3 className="text-lg font-bold text-purple-900">
+                    Generation Complete!
                   </h3>
-                  <p className="text-green-700 text-sm">
+                  <p className="text-purple-700 text-sm">
                     Found {results.result_count} items from{" "}
                     <strong className="break-all">{results.filename}</strong>.
                   </p>
                 </div>
               </div>
 
-              {/* FIX 2: Made the button container full width on mobile, stacked buttons on tiny screens */}
               <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
                 <button
                   onClick={resetToIdle}
-                  className="w-full sm:w-auto justify-center px-4 py-2 bg-white border border-green-200 text-green-700 rounded-lg hover:bg-green-100 transition-colors text-sm font-medium shadow-sm"
+                  className="w-full sm:w-auto justify-center px-4 py-2 bg-white border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors text-sm font-medium shadow-sm"
                 >
                   Start New Job
                 </button>
+
+                {/* 1-Click Send to Cosing Scraper */}
+                {results.result_count > 0 && (
+                  <button
+                    onClick={forwardToScraper}
+                    disabled={isForwarding}
+                    className="flex w-full sm:w-auto items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400 transition-colors shadow-sm text-sm font-medium"
+                  >
+                    {isForwarding ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4 mr-2" />
+                    )}
+                    Forward to Cosing Scraper
+                  </button>
+                )}
+
                 {results.result_count > 0 && (
                   <button
                     onClick={handleDownload}
-                    className="flex w-full sm:w-auto items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm text-sm font-medium"
+                    className="flex w-full sm:w-auto items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium"
                   >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Download Excel
+                    <Download className="w-4 h-4 mr-2" /> Download Excel
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Data Preview Table (History-style Pagination & Sticky Header) */}
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
               <div className="px-4 md:px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <h4 className="font-semibold text-gray-700">Data Preview</h4>
@@ -383,7 +356,6 @@ const Scraper = () => {
                   Showing page {tablePage} of {totalPages}
                 </span>
               </div>
-
               <div className="overflow-x-auto overflow-y-auto max-h-[50vh] w-full">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
@@ -395,7 +367,7 @@ const Scraper = () => {
                             key={key}
                             className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-50 border-b"
                           >
-                            {key.replace("_", " ")}
+                            {key}
                           </th>
                         ))}
                     </tr>
@@ -411,7 +383,6 @@ const Scraper = () => {
                             key={i}
                             className="px-6 py-4 text-sm text-gray-600 min-w-[200px] max-w-md border-b"
                           >
-                            {/* Reusing the ExpandableCell from History */}
                             <ExpandableCell content={val} />
                           </td>
                         ))}
@@ -420,14 +391,12 @@ const Scraper = () => {
                   </tbody>
                 </table>
               </div>
-
-              {/* Pagination Controls */}
               {totalItems > ITEMS_PER_PAGE && (
                 <div className="flex items-center justify-between p-4 border-t border-gray-100 bg-gray-50">
                   <button
                     onClick={() => setTablePage((p) => Math.max(1, p - 1))}
                     disabled={tablePage === 1}
-                    className="flex items-center px-3 py-1 text-sm text-blue-600 hover:bg-blue-100 rounded-md disabled:opacity-50 disabled:hover:bg-transparent transition-colors font-medium"
+                    className="flex items-center px-3 py-1 text-sm text-purple-600 hover:bg-purple-100 rounded-md disabled:opacity-50 disabled:hover:bg-transparent transition-colors font-medium"
                   >
                     <ChevronLeft className="w-4 h-4 mr-1" /> Prev
                   </button>
@@ -439,7 +408,7 @@ const Scraper = () => {
                       setTablePage((p) => Math.min(totalPages, p + 1))
                     }
                     disabled={tablePage === totalPages}
-                    className="flex items-center px-3 py-1 text-sm text-blue-600 hover:bg-blue-100 rounded-md disabled:opacity-50 disabled:hover:bg-transparent transition-colors font-medium"
+                    className="flex items-center px-3 py-1 text-sm text-purple-600 hover:bg-purple-100 rounded-md disabled:opacity-50 disabled:hover:bg-transparent transition-colors font-medium"
                   >
                     Next <ChevronRight className="w-4 h-4 ml-1" />
                   </button>
@@ -455,15 +424,14 @@ const Scraper = () => {
           </div>
         )}
 
-        {/* Start Button (Only visible during IDLE) */}
         {status === "IDLE" && (
           <div className="mt-8 flex justify-end">
             <button
-              onClick={startScraping}
+              onClick={startGeneration}
               disabled={!file}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-sm"
+              className="px-6 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-sm flex items-center"
             >
-              Start Scraping
+              <Sparkles className="w-4 h-4 mr-2" /> Start AI Generator
             </button>
           </div>
         )}
@@ -472,4 +440,4 @@ const Scraper = () => {
   );
 };
 
-export default Scraper;
+export default GetInci;

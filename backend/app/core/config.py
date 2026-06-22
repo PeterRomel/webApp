@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str  # For JWT tokens
     API_KEY_COSING: str
+    GEMINI_API_KEY: str
+    GEMINI_MODEL_NAME: str = "gemini-2.5-flash"
+    GEMINI_BATCH_SIZE: int = 100
     ALGORITHM: str = "HS256"
     REDIS_URL_CELERY: str = "redis://localhost:6379/0"  # DB 0 for Task Queue
     REDIS_URL_BLACKLIST: dict = Field(

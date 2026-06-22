@@ -15,6 +15,7 @@ from sqlmodel import Session, select, func
 from app.db.engine import get_session, engine
 from app.models.scraper import ScrapeJob
 from app.tasks.scraper_tasks import master_process_file
+from app.tasks.inci_tasks import process_inci_job
 from app.api.deps import get_current_user_id
 from app.core.config import settings
 
@@ -85,6 +86,143 @@ async def upload_ingredients_file(
     master_process_file.delay(new_job.id, saved_path)
 
     return {"job_id": new_job.id, "message": "Scraping task started in background"}
+
+
+@router.post("/upload/inci")
+async def upload_inci_file(
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    # --- ACTIVE JOB LIMIT CHECK ---
+    active_jobs_query = select(func.count(ScrapeJob.id)).where(
+        ScrapeJob.user_id == current_user_id, ScrapeJob.status == "pending"
+    )
+    if session.exec(active_jobs_query).one() >= 2:
+        raise HTTPException(
+            status_code=429,
+            detail="You already have 2 jobs running. Please wait for them to finish.",
+        )
+
+    # Check file size (Max 5MB)
+    file.file.seek(0, 2)
+    if file.file.tell() > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413, detail="File too large. Maximum size is 50MB."
+        )
+    await file.seek(0)
+
+    if not file.filename.lower().endswith((".xlsx", ".xlsm", ".xls", ".csv")):
+        raise HTTPException(
+            status_code=400, detail="Invalid file type. Please upload Excel or CSV."
+        )
+
+    # Save file securely
+    file_id = str(uuid.uuid4())
+    file_extension = os.path.splitext(file.filename)[1]
+    saved_path = os.path.join(UPLOAD_DIR, f"inci_{file_id}{file_extension}")
+
+    await run_in_threadpool(save_upload_to_disk, file.file, saved_path)
+
+    # Create Job record in Database - NOTE the job_type!
+    new_job = ScrapeJob(
+        filename=file.filename,
+        status="pending",
+        user_id=current_user_id,
+        job_type="inci",  # <-- Marks it as an AI job
+    )
+    session.add(new_job)
+    session.commit()
+    session.refresh(new_job)
+
+    # Trigger the Gemini Celery Task
+    process_inci_job.delay(new_job.id, saved_path)
+
+    return {"job_id": new_job.id, "message": "INCI task started in background"}
+
+
+@router.post("/{job_id}/forward-to-scraper")
+def forward_inci_to_scraper(
+    job_id: int,
+    session: Session = Depends(get_session),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    # 1. Get the original INCI job
+    original_job = session.get(ScrapeJob, job_id)
+
+    if not original_job or original_job.user_id != current_user_id:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if original_job.status != "completed" or not original_job.results:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot forward a job that is not completed or has no data.",
+        )
+
+    if original_job.job_type != "inci":
+        raise HTTPException(
+            status_code=400,
+            detail="Only INCI Generator jobs can be forwarded to the Scraper.",
+        )
+
+    # 2. Limit Check
+    active_jobs_query = select(func.count(ScrapeJob.id)).where(
+        ScrapeJob.user_id == current_user_id, ScrapeJob.status == "pending"
+    )
+    if session.exec(active_jobs_query).one() >= 2:
+        raise HTTPException(
+            status_code=429,
+            detail="You already have 2 jobs running. Please wait for them to finish.",
+        )
+
+    # 3. Extract the Cleaned INCI names
+    cleaned_ingredients = []
+    for item in original_job.results:
+        inci_text = item.get("Identified INCI", "")
+
+        if not inci_text:
+            continue
+
+        # Convert to lowercase for safer checking
+        text_lower = inci_text.lower()
+
+        # Skip if it contains "error" or "not found"
+        if "error" in text_lower or "not found" in text_lower:
+            continue
+
+        # If valid, split by comma and add
+        parts = [p.strip() for p in inci_text.split(",")]
+        cleaned_ingredients.extend(parts)
+
+    if not cleaned_ingredients:
+        raise HTTPException(
+            status_code=400, detail="No valid INCI names found in this job to forward."
+        )
+
+    # 4. Create a temporary CSV file on the server
+    # We construct a dataframe with the exact column name 'Ingredient' that the Scraper expects
+    df = pd.DataFrame({"Ingredient": cleaned_ingredients})
+
+    file_id = str(uuid.uuid4())
+    saved_path = os.path.join(UPLOAD_DIR, f"forwarded_{file_id}.csv")
+    df.to_csv(saved_path, index=False)
+
+    # 5. Create the new Scraper Job in the Database
+    new_job = ScrapeJob(
+        filename=f"[Forwarded] {original_job.filename}",
+        status="pending",
+        user_id=current_user_id,
+        job_type="scraper",  # <-- Back to a scraper job!
+    )
+    session.add(new_job)
+    session.commit()
+    session.refresh(new_job)
+
+    # 6. Trigger the Selenium Master Task
+    master_process_file.delay(new_job.id, saved_path)
+
+    # Return the new job ID so the frontend can redirect to the Scraper page and watch it run!
+    return {"job_id": new_job.id, "message": "Forwarded successfully to Scraper"}
 
 
 @router.get("/status/{job_id}")

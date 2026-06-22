@@ -11,6 +11,9 @@ import {
   Loader2,
   Trash2,
   XCircle,
+  Sparkles,
+  Send,
+  LayoutDashboard,
 } from "lucide-react";
 
 // --- MINI COMPONENT: Touch-Friendly Expandable Cell ---
@@ -179,6 +182,22 @@ const History = () => {
     }
   };
 
+  // --- FORWARD JOB ---
+  const handleForwardJob = async (jobId, filename) => {
+    const confirmed = window.confirm(
+      `Send the results of "${filename}" to the Cosing Scraper?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.post(`/api/scrape/${jobId}/forward-to-scraper`);
+      alert("Success! A new Cosing Scraper job has been started.");
+      fetchHistory(currentPage); // Refresh to show the newly created scraper job!
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to forward data to scraper.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER */}
@@ -242,7 +261,25 @@ const History = () => {
                         {new Date(job.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {job.filename}
+                        <div className="flex items-center">
+                          {job.job_type === "inci" ? (
+                            <Sparkles
+                              className="w-4 h-4 text-purple-500 mr-2 shrink-0"
+                              title="AI INCI Generator"
+                            />
+                          ) : (
+                            <LayoutDashboard
+                              className="w-4 h-4 text-blue-500 mr-2 shrink-0"
+                              title="Cosing Scraper"
+                            />
+                          )}
+                          <span
+                            className="truncate max-w-[200px]"
+                            title={job.filename}
+                          >
+                            {job.filename}
+                          </span>
+                        </div>
                       </td>
 
                       {/* 1. STATUS COLUMN */}
@@ -300,6 +337,17 @@ const History = () => {
                                 >
                                   <Download className="w-5 h-5" />
                                 </button>
+                                {job.job_type === "inci" && (
+                                  <button
+                                    onClick={() =>
+                                      handleForwardJob(job.id, job.filename)
+                                    }
+                                    className="text-purple-600 hover:text-purple-900 p-1 rounded transition-colors hover:bg-purple-50"
+                                    title="Forward to Scraper"
+                                  >
+                                    <Send className="w-5 h-5" />
+                                  </button>
+                                )}
                               </>
                             )}
 

@@ -7,6 +7,7 @@ import Scraper from "./pages/Scraper";
 import History from "./pages/History";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import GetInci from "./pages/GetInci";
 
 // A helper component to protect our private pages
 const ProtectedRoute = ({ children }) => {
@@ -42,7 +43,19 @@ function App() {
           }
         />
 
-        {/* Example: A History Page */}
+        {/* The AI Generator Page */}
+        <Route
+          path="/inci"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout>
+                <GetInci />
+              </DashboardLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* The History Page */}
         <Route
           path="/history"
           element={

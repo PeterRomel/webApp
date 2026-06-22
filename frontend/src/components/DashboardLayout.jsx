@@ -10,6 +10,7 @@ import {
   X,
   ChevronDown,
   Settings,
+  Sparkles,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -39,6 +40,7 @@ const DashboardLayout = ({ children }) => {
 
   const navigation = [
     { name: "Scraper", href: "/", icon: LayoutDashboard },
+    { name: "Get INCI Name", href: "/inci", icon: Sparkles },
     { name: "History", href: "/history", icon: History },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
