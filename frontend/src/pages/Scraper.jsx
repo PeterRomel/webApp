@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ArrowRight,
 } from "lucide-react";
+import { ITEMS_PER_PAGE } from "../config/constants";
 import api from "../api/axios";
 
 // --- MINI COMPONENT: Touch-Friendly Expandable Cell ---
@@ -39,7 +40,6 @@ const Scraper = () => {
 
   // Pagination State for the Results Table
   const [tablePage, setTablePage] = useState(1);
-  const ITEMS_PER_PAGE = 20;
 
   // This acts as our network "kill switch"
   const abortControllerRef = useRef(null);
@@ -66,7 +66,7 @@ const Scraper = () => {
 
     const MAX_FILE_SIZE = 5242880; // 5MB
     if (selectedFile.size > MAX_FILE_SIZE) {
-      setError("File is too large. Please upload a file smaller than 50MB.");
+      setError("File is too large. Please upload a file smaller than 5MB.");
       setFile(null);
       e.target.value = null;
       return;
@@ -273,7 +273,7 @@ const Scraper = () => {
               // --- Validate file size on Drag & Drop ---
               if (droppedFile.size > 5242880) {
                 setError(
-                  "File is too large. Please drop a file smaller than 50MB.",
+                  "File is too large. Please drop a file smaller than 5MB.",
                 );
                 setFile(null);
                 return;

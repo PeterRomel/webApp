@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import Modal from "../components/Modal";
+import { ITEMS_PER_PAGE } from "../config/constants";
 import {
   FileText,
   Download,
@@ -54,14 +55,13 @@ const History = () => {
 
   // Modal Pagination State
   const [modalPage, setModalPage] = useState(1);
-  const MODAL_ITEMS_PER_PAGE = 20;
 
   // --- FETCH HISTORY ---
   const fetchHistory = async (page = 1) => {
     setLoading(true);
     try {
       const response = await api.get(
-        `/api/users/history?page=${page}&limit=20`,
+        `/api/users/history?page=${page}&limit=${ITEMS_PER_PAGE}`,
       );
       setJobs(response.data.data);
       setCurrentPage(response.data.pagination.current_page);
@@ -466,8 +466,8 @@ const History = () => {
                   {/* SLICE THE DATA FOR MODAL PAGINATION */}
                   {modalData
                     .slice(
-                      (modalPage - 1) * MODAL_ITEMS_PER_PAGE,
-                      modalPage * MODAL_ITEMS_PER_PAGE,
+                      (modalPage - 1) * ITEMS_PER_PAGE,
+                      modalPage * ITEMS_PER_PAGE,
                     )
                     .map((row, i) => (
                       <tr
@@ -490,7 +490,7 @@ const History = () => {
             </div>
 
             {/* MODAL PAGINATION CONTROLS */}
-            {modalData.length > MODAL_ITEMS_PER_PAGE && (
+            {modalData.length > ITEMS_PER_PAGE && (
               <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                 <button
                   onClick={() => setModalPage((p) => Math.max(1, p - 1))}
@@ -501,20 +501,19 @@ const History = () => {
                 </button>
                 <span className="text-sm text-gray-500">
                   Page {modalPage} of{" "}
-                  {Math.ceil(modalData.length / MODAL_ITEMS_PER_PAGE)}
+                  {Math.ceil(modalData.length / ITEMS_PER_PAGE)}
                 </span>
                 <button
                   onClick={() =>
                     setModalPage((p) =>
                       Math.min(
-                        Math.ceil(modalData.length / MODAL_ITEMS_PER_PAGE),
+                        Math.ceil(modalData.length / ITEMS_PER_PAGE),
                         p + 1,
                       ),
                     )
                   }
                   disabled={
-                    modalPage ===
-                    Math.ceil(modalData.length / MODAL_ITEMS_PER_PAGE)
+                    modalPage === Math.ceil(modalData.length / ITEMS_PER_PAGE)
                   }
                   className="flex items-center px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-md disabled:opacity-50 disabled:hover:bg-transparent"
                 >

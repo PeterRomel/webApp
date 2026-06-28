@@ -14,6 +14,7 @@ import {
   Download,
 } from "lucide-react";
 import api from "../api/axios";
+import { ITEMS_PER_PAGE } from "../config/constants";
 
 const ExpandableCell = ({ content }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -39,7 +40,6 @@ const GetInci = () => {
   const [isForwarding, setIsForwarding] = useState(false);
 
   const [tablePage, setTablePage] = useState(1);
-  const ITEMS_PER_PAGE = 20;
 
   const abortControllerRef = useRef(null);
   const navigate = useNavigate();

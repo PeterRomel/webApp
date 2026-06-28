@@ -1,14 +1,184 @@
+# app/services/scraper_service.py
+import os
 import time
 import json
+import uuid
+import shutil
+import tempfile
+import pandas as pd
+from fastapi import HTTPException, status
+from sqlmodel import Session, select, func
+
+from app.models.scraper import ScrapeJob
 from app.core.scraper_config import split_patterns
 from app.core.logger_config import APP_LOGGER
 from app.core.config import settings
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
 
+# --- 1. HELPER FUNCTIONS ---
+def save_upload_to_disk(upload_file_obj, destination_path):
+    """Safely streams an uploaded file to the hard drive."""
+    with open(destination_path, "wb") as buffer:
+        shutil.copyfileobj(upload_file_obj, buffer)
+
+
+# --- 2. JOB SERVICE (Database & Business Logic) ---
+class JobService:
+    """Handles all Database interactions and heavy lifting for Scraper Jobs."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def enforce_job_limit(self, user_id: int, limit: int = 2):
+        """Ensures a user doesn't exceed concurrent running jobs."""
+        active_jobs_query = select(func.count(ScrapeJob.id)).where(
+            ScrapeJob.user_id == user_id, ScrapeJob.status == "pending"
+        )
+        active_jobs_count = self.session.exec(active_jobs_query).one()
+
+        if active_jobs_count >= limit:
+            raise HTTPException(
+                status_code=429,
+                detail=f"You already have {limit} jobs running. Please wait for them to finish or cancel them.",
+            )
+
+    def create_job(self, filename: str, user_id: int, job_type: str) -> ScrapeJob:
+        """Checks limits and creates a new job in the database."""
+        self.enforce_job_limit(user_id)
+
+        new_job = ScrapeJob(
+            filename=filename, status="pending", user_id=user_id, job_type=job_type
+        )
+        self.session.add(new_job)
+        self.session.commit()
+        self.session.refresh(new_job)
+        return new_job
+
+    def get_job_safely(self, job_id: int, user_id: int) -> ScrapeJob:
+        """Fetches a job and ensures the user owns it."""
+        job = self.session.get(ScrapeJob, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if job.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Permission denied")
+        return job
+
+    def delete_job(self, job_id: int, user_id: int):
+        """Deletes a job from the database."""
+        job = self.get_job_safely(job_id, user_id)
+        if job.status == "pending":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete a job that is currently running.",
+            )
+        self.session.delete(job)
+        self.session.commit()
+
+    def cancel_job(self, job_id: int, user_id: int):
+        """Marks a pending job as cancelled."""
+        job = self.get_job_safely(job_id, user_id)
+        if job.status != "pending":
+            raise HTTPException(
+                status_code=400, detail="Only active jobs can be cancelled."
+            )
+
+        job.status = "cancelled"
+        job.error_message = "Job was cancelled by the user."
+        self.session.add(job)
+        self.session.commit()
+
+    def generate_excel(self, job_id: int, user_id: int) -> tuple[str, str]:
+        """Converts Job results JSON into an Excel file on disk."""
+        job = self.get_job_safely(job_id, user_id)
+
+        if job.status != "completed":
+            raise HTTPException(
+                status_code=400, detail="Results are not ready for download."
+            )
+        if not job.results:
+            raise HTTPException(
+                status_code=400, detail="No data was found during scraping."
+            )
+
+        df = pd.DataFrame(job.results)
+
+        # Create a temporary file on disk
+        fd, path = tempfile.mkstemp(suffix=".xlsx")
+        with os.fdopen(fd, "wb") as f:
+            with pd.ExcelWriter(f, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False, sheet_name="Scrape Results")
+
+        return path, job.filename
+
+    def process_forwarding(
+        self, original_job_id: int, user_id: int
+    ) -> tuple[ScrapeJob, str]:
+        """Takes an INCI job, parses the results, and prepares a new Scraper job."""
+        original_job = self.get_job_safely(original_job_id, user_id)
+
+        if original_job.status != "completed" or not original_job.results:
+            raise HTTPException(
+                status_code=400, detail="Cannot forward an incomplete job."
+            )
+        if original_job.job_type != "inci":
+            raise HTTPException(
+                status_code=400, detail="Only INCI jobs can be forwarded."
+            )
+
+        # Re-check active limits before creating a new job
+        self.enforce_job_limit(user_id)
+
+        # Extract Cleaned INCI names
+        cleaned_ingredients = []
+        for item in original_job.results:
+            inci_text = item.get("Identified INCI", "")
+            if not inci_text:
+                continue
+            text_lower = inci_text.lower()
+            if "error" in text_lower or "not found" in text_lower:
+                continue
+
+            parts = [p.strip() for p in inci_text.split(",")]
+            cleaned_ingredients.extend(parts)
+
+        if not cleaned_ingredients:
+            raise HTTPException(
+                status_code=400, detail="No valid INCI names found to forward."
+            )
+
+        # Construct CSV
+        df = pd.DataFrame({"Ingredient": cleaned_ingredients})
+        file_id = str(uuid.uuid4())
+        saved_path = os.path.join(settings.UPLOAD_DIR, f"forwarded_{file_id}.csv")
+        df.to_csv(saved_path, index=False)
+
+        # Create New Scraper Job
+        new_job = ScrapeJob(
+            filename=f"[Forwarded] {original_job.filename}",
+            status="pending",
+            user_id=user_id,
+            job_type="scraper",
+        )
+        self.session.add(new_job)
+        self.session.commit()
+        self.session.refresh(new_job)
+
+        return new_job, saved_path
+
+    def check_status_for_stream(self, job_id: int) -> dict:
+        """Lightweight database check for the SSE Event Stream."""
+        job = self.session.get(ScrapeJob, job_id)
+        if not job:
+            return {"status": "failed", "error_message": "Job deleted or missing."}
+        return {"status": job.status, "error_message": job.error_message}
+
+
+# --- 3. SCRAPER SERVICE (Selenium Logic) ---
 class CosingScraper:
     def __init__(self):
         self.driver = None
@@ -155,7 +325,6 @@ class CosingScraper:
                                 "search-api/prod/rest/search" in request["url"]
                                 and request["method"] == "POST"
                             ):
-
                                 if (
                                     "postData" in request
                                     and captured_body_checker in request["postData"]
@@ -173,7 +342,6 @@ class CosingScraper:
                                             continue
                                     except:
                                         continue
-
                                 captured_headers = request["headers"]
                                 break
                     except:
@@ -182,7 +350,6 @@ class CosingScraper:
                 # If we caught the network data, break out of the 15-second waiting loop!
                 if captured_body:
                     break
-
                 time.sleep(1)  # Wait 1 second before checking logs again
 
             if not captured_body:
@@ -216,7 +383,6 @@ class CosingScraper:
 
             while True:
                 api_url = f"{settings.API_BASE_URL}?apiKey={settings.API_KEY_COSING}&text=*&pageSize={settings.PAGE_SIZE}&pageNumber={page_number}"
-
                 response_data = self.driver.execute_async_script(
                     replay_js, api_url, captured_headers, captured_body, content_type
                 )

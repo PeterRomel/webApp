@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     GEMINI_MODEL_NAME: str = "gemini-2.5-flash"
     GEMINI_BATCH_SIZE: int = 100
+    DEFAULT_PAGINATION_LIMIT: int = 20
+    MAX_PAGINATION_LIMIT: int = 100
     ALGORITHM: str = "HS256"
     REDIS_URL_CELERY: str = "redis://localhost:6379/0"  # DB 0 for Task Queue
     REDIS_URL_BLACKLIST: dict = Field(

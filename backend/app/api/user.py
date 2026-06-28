@@ -12,6 +12,7 @@ from app.core.security import create_access_token, decode_access_token
 from app.api.deps import get_current_user_id, redis_client, oauth2_scheme
 import redis.exceptions
 from app.core.logger_config import APP_LOGGER
+from app.core.config import settings
 
 
 def revoke_token(token: str):
@@ -107,7 +108,9 @@ def login(
 @router.get("/history")
 def get_user_history(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),  # Maximum 100 items per page
+    limit: int = Query(
+        settings.DEFAULT_PAGINATION_LIMIT, ge=1, le=settings.MAX_PAGINATION_LIMIT
+    ),  # Maximum 100 items per page
     current_user_id: int = Depends(get_current_user_id),
     session: Session = Depends(get_session),
 ):

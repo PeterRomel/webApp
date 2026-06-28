@@ -68,10 +68,10 @@ const Settings = () => {
   const handleFileChange = async (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      if (file.size > 5 * 1024 * 1024) {
-        // 5MB Limit
+      if (file.size > 15 * 1024 * 1024) {
+        // 15MB Limit
         alert(
-          "This image is too large. Please select a file smaller than 5MB.",
+          "This image is too large. Please select a file smaller than 15MB.",
         );
         e.target.value = null;
         return;
@@ -226,7 +226,7 @@ const Settings = () => {
                       Picture
                     </label>
                     <p className="text-xs text-gray-500 mt-2">
-                      JPG, PNG or WebP. Max 5MB.
+                      JPG, PNG or WebP. Max 15MB.
                     </p>
                   </div>
                 </div>
