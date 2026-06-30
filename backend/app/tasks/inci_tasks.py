@@ -117,21 +117,34 @@ def process_inci_job(job_id: int, file_path: str):
     APP_LOGGER.info(f"Starting INCI Generator Job {job_id}")
 
     try:
-        # 1. Load File
-        if file_path.endswith(".csv"):
-            input_df = pd.read_csv(file_path)
-        else:
-            input_df = pd.read_excel(file_path)
-
         col_name = "Ingredient"
 
-        # Catch predictable user errors!
-        if col_name not in input_df.columns:
+        try:
+            # Load the file
+            if file_path.endswith(".csv"):
+                try:
+                    input_df = pd.read_csv(
+                        file_path, encoding="utf-8", usecols=[col_name]
+                    )
+                except UnicodeDecodeError:
+                    input_df = pd.read_csv(
+                        file_path, encoding="cp1252", usecols=[col_name]
+                    )
+            else:
+                input_df = pd.read_excel(file_path, usecols=[col_name])
+
+        except ValueError:
+            # Pandas throws a ValueError if the column is entirely missing when using `usecols`
             raise ValueError(
                 "The uploaded file is missing the required 'Ingredient' column. Please check your headers."
             )
+
+        # Clean up empty rows
         input_df = input_df.dropna(subset=[col_name])
+
+        # Drop NaNs and convert to string in one go
         input_df[col_name] = input_df[col_name].astype(str).str.strip()
+
         materials_list = input_df[input_df[col_name] != ""][col_name].tolist()
 
         if len(materials_list) > 5000:

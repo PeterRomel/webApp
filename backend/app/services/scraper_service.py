@@ -9,6 +9,7 @@ import pandas as pd
 from fastapi import HTTPException, status
 from sqlmodel import Session, select, func
 
+from app.db.engine import engine
 from app.models.scraper import ScrapeJob
 from app.core.scraper_config import split_patterns
 from app.core.logger_config import APP_LOGGER
@@ -170,12 +171,23 @@ class JobService:
 
         return new_job, saved_path
 
-    def check_status_for_stream(self, job_id: int) -> dict:
-        """Lightweight database check for the SSE Event Stream."""
-        job = self.session.get(ScrapeJob, job_id)
-        if not job:
-            return {"status": "failed", "error_message": "Job deleted or missing."}
-        return {"status": job.status, "error_message": job.error_message}
+    @staticmethod
+    def check_status_for_stream(job_id: int, user_id: int) -> dict:
+        """
+        Lightweight, isolated database check for the SSE Event Stream.
+        We use a @staticmethod and a local 'with Session' to prevent
+        database connection exhaustion during long-running streams.
+        """
+        with Session(engine) as db:
+            job = db.get(ScrapeJob, job_id)
+            if not job:
+                return {"status": "failed", "error_message": "Job deleted or missing."}
+
+            # Security check: Ensure the person listening actually owns the job
+            if job.user_id != user_id:
+                return {"status": "failed", "error_message": "Unauthorized access."}
+
+            return {"status": job.status, "error_message": job.error_message}
 
 
 # --- 3. SCRAPER SERVICE (Selenium Logic) ---

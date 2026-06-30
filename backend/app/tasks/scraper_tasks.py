@@ -30,32 +30,43 @@ def _set_job_failed(job_id: int, error_msg: str):
 @celery_app.task(name="master_process_file")
 def master_process_file(job_id: int, file_path: str):
     try:
-        # Load the file
-        if file_path.endswith(".csv"):
-            input_df = pd.read_csv(file_path)
-        else:
-            input_df = pd.read_excel(file_path)
 
-        # Catch predictable user errors!
-        if "Ingredient" not in input_df.columns:
+        col_name = "Ingredient"
+
+        try:
+            # Load the file
+            if file_path.endswith(".csv"):
+                try:
+                    input_df = pd.read_csv(
+                        file_path, encoding="utf-8", usecols=[col_name]
+                    )
+                except UnicodeDecodeError:
+                    input_df = pd.read_csv(
+                        file_path, encoding="cp1252", usecols=[col_name]
+                    )
+            else:
+                input_df = pd.read_excel(file_path, usecols=[col_name])
+
+        except ValueError:
+            # Pandas throws a ValueError if the column is entirely missing when using `usecols`
             raise ValueError(
                 "The uploaded file is missing the required 'Ingredient' column. Please check your headers."
             )
 
         # Clean up empty rows
-        input_df = input_df.dropna(subset=["Ingredient"])
+        input_df = input_df.dropna(subset=[col_name])
 
         # Drop NaNs and convert to string in one go
-        input_df["Ingredient"] = input_df["Ingredient"].astype(str).str.strip()
+        input_df[col_name] = input_df[col_name].astype(str).str.strip()
 
         # Combined Boolean Mask (Faster than multiple re-assignments)
         # We create one "True/False" list and apply it once.
-        mask = (input_df["Ingredient"].str.len() >= 3) & (
-            ~input_df["Ingredient"].str.contains(r"[*?#$]", na=False)
+        mask = (input_df[col_name].str.len() >= 3) & (
+            ~input_df[col_name].str.contains(r"[*?#$]", na=False)
         )
 
         # Filter and Convert the column to a simple Python list
-        ingredients_list = input_df.loc[mask, "Ingredient"].tolist()
+        ingredients_list = input_df.loc[mask, col_name].tolist()
 
         # ROW LIMIT CHECK
         MAX_ROWS = 5000

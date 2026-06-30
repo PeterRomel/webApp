@@ -166,17 +166,14 @@ async def download_results(
 @router.get("/stream/{job_id}")
 async def stream_job_status(
     job_id: int,
-    session: Session = Depends(get_session),
     current_user_id: int = Depends(get_current_user_id),
 ):
-    service = JobService(session)
-
     async def event_generator():
         try:
             while True:
-                # Ask the service for a lightweight status check
+                # Call the static method directly from the class!
                 payload = await run_in_threadpool(
-                    service.check_status_for_stream, job_id
+                    JobService.check_status_for_stream, job_id, current_user_id
                 )
 
                 yield f"data: {json.dumps(payload)}\n\n"
