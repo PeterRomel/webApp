@@ -1,6 +1,7 @@
 # app/tasks/inci_tasks.py
 import os
 import json
+import time
 import pandas as pd
 from google import genai
 from google.genai import types
@@ -173,6 +174,9 @@ def process_inci_job(job_id: int, file_path: str):
                     )
                     return
             # ------------------------------
+
+            if i > 0:
+                time.sleep(4.2)
 
             batch = materials_list[i : i + batch_size]
             APP_LOGGER.info(f"Job {job_id}: Processing batch {i//batch_size + 1}")

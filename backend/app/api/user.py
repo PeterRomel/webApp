@@ -150,11 +150,17 @@ def get_user_history(
 
 
 @router.post("/me/avatar", response_model=UserRead)
-def upload_avatar(
+async def upload_avatar(
     file: UploadFile = File(...),
     user_id: int = Depends(get_current_user_id),
     session: Session = Depends(get_session),
 ):
+    file.file.seek(0, 2)
+    if file.file.tell() > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413, detail="Image file too large. Maximum size is 5MB."
+        )
+    await file.seek(0)
     service = UserService(session)
     return service.update_avatar(user_id, file)
 

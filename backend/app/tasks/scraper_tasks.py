@@ -2,6 +2,7 @@
 import os
 import pandas as pd
 from celery import chord
+from celery.exceptions import SoftTimeLimitExceeded
 from app.core.celery_app import celery_app
 from app.db.engine import Session, engine
 from app.models.scraper import ScrapeJob
@@ -22,6 +23,13 @@ def _set_job_failed(job_id: int, error_msg: str):
                 session.commit()
     except Exception as e:
         APP_LOGGER.error(f"Failed to write error state to DB for job {job_id}: {e}")
+
+
+@celery_app.task(name="handle_chord_error")
+def handle_chord_error(request, exc, traceback, job_id: int):
+    """Fallback if the Celery chord completely shatters."""
+    APP_LOGGER.error(f"Chord failed for Job {job_id}. Reason: {exc}")
+    _set_job_failed(job_id, "A critical system error caused the scraping to fail.")
 
 
 # ---------------------------------------------------------
@@ -97,8 +105,11 @@ def master_process_file(job_id: int, file_path: str):
         # Create the callback task (Runs ONLY when all chunks are done)
         callback = merge_and_save_results.s(job_id)
 
+        # Create the error callback (If the chord shatters, this task will run instead)
+        error_callback = handle_chord_error.s(job_id)
+
         # Execute the Chord (Task Group -> Callback)
-        chord(task_group)(callback)
+        chord(task_group)(callback).on_error(error_callback)
 
     # Catch the ValueError we just raised (Friendly Error)
     except ValueError as ve:
@@ -122,7 +133,7 @@ def master_process_file(job_id: int, file_path: str):
 # ---------------------------------------------------------
 # 2. THE WORKER (Concurrent Sub-Task)
 # ---------------------------------------------------------
-@celery_app.task(name="process_chunk", time_limit=3600)
+@celery_app.task(name="process_chunk", soft_time_limit=3300, time_limit=3600)
 def process_chunk(job_id: int, ingredients: list, chunk_num: int, total_chunks: int):
     # Initial check before booting Selenium
     with Session(engine) as session:
@@ -160,6 +171,12 @@ def process_chunk(job_id: int, ingredients: list, chunk_num: int, total_chunks: 
                     f"Job {job_id} (Chunk {chunk_num}): Failed on {ing_name}: {e}"
                 )
 
+        return chunk_results
+
+    except SoftTimeLimitExceeded:
+        APP_LOGGER.warning(
+            f"Job {job_id} (Chunk {chunk_num}) took too long and was safely terminated."
+        )
         return chunk_results
 
     except Exception as e:
