@@ -1,7 +1,7 @@
 # app/tasks/inci_tasks.py
 import os
-import json
 import time
+import json
 import pandas as pd
 from google import genai
 from google.genai import types
@@ -11,7 +11,6 @@ from app.models.scraper import ScrapeJob
 from app.core.logger_config import APP_LOGGER
 from app.core.config import settings
 
-# --- PROMPT TEMPLATE ---
 prompt_template_batch_basic_inci = """Your *only* output must be a single, valid JSON object string. Do not include any explanatory text, markdown formatting, or anything else before or after the JSON.
 
 Task: For each cosmetic material/mixture name provided in the input list, identify its INCI (International Nomenclature of Cosmetic Ingredients) name(s).
@@ -36,7 +35,6 @@ The value of "results" must be a JSON array. Each element in this array should b
 
 
 def _set_job_failed(job_id: int, error_msg: str):
-    """Helper to update DB when a job fails"""
     try:
         with Session(engine) as session:
             job = session.get(ScrapeJob, job_id)
@@ -50,7 +48,6 @@ def _set_job_failed(job_id: int, error_msg: str):
 
 
 def parse_gemini_response(raw_text, material_batch_list):
-    """Helper function to parse the JSON response from Gemini."""
     try:
         cleaned_text = raw_text.strip()
         if cleaned_text.startswith("```json"):
@@ -61,7 +58,6 @@ def parse_gemini_response(raw_text, material_batch_list):
         if not cleaned_text:
             return [
                 {
-                    "Input Name": mat,
                     "Identified INCI": "Error: Empty text after cleaning",
                 }
                 for mat in material_batch_list
@@ -72,22 +68,12 @@ def parse_gemini_response(raw_text, material_batch_list):
         if "results" in data and isinstance(data["results"], list):
             validated_results = []
             for i, res_item in enumerate(data["results"]):
-                input_mat = res_item.get(
-                    "input_material",
-                    (
-                        material_batch_list[i]
-                        if i < len(material_batch_list)
-                        else "Unknown"
-                    ),
-                )
                 inci_names = res_item.get(
                     "identified_INCI_names", ["Error: Malformed result"]
                 )
 
-                # Format to match our frontend table structure perfectly
                 validated_results.append(
                     {
-                        "Input Name": input_mat,
                         "Identified INCI": (
                             ", ".join(inci_names)
                             if isinstance(inci_names, list)
@@ -99,16 +85,14 @@ def parse_gemini_response(raw_text, material_batch_list):
         else:
             return [
                 {
-                    "Input Name": mat,
                     "Identified INCI": "Error: Malformed JSON structure",
                 }
                 for mat in material_batch_list
             ]
-
     except Exception as e:
         APP_LOGGER.error(f"Failed to parse Gemini JSON: {e}")
         return [
-            {"Input Name": mat, "Identified INCI": "Error processing response"}
+            {"Identified INCI": "Error processing response"}
             for mat in material_batch_list
         ]
 
@@ -120,38 +104,56 @@ def process_inci_job(job_id: int, file_path: str):
     try:
         col_name = "Ingredient"
 
-        try:
-            # Load the file
-            if file_path.endswith(".csv"):
-                try:
-                    input_df = pd.read_csv(
-                        file_path, encoding="utf-8", usecols=[col_name]
-                    )
-                except UnicodeDecodeError:
-                    input_df = pd.read_csv(
-                        file_path, encoding="cp1252", usecols=[col_name]
-                    )
-            else:
-                input_df = pd.read_excel(file_path, usecols=[col_name])
+        # 1. Read the Entire File
+        if file_path.endswith(".csv"):
+            try:
+                input_df = pd.read_csv(file_path, encoding="utf-8")
+            except UnicodeDecodeError:
+                input_df = pd.read_csv(file_path, encoding="cp1252")
+        else:
+            input_df = pd.read_excel(file_path)
 
-        except ValueError:
-            # Pandas throws a ValueError if the column is entirely missing when using `usecols`
+        # 2. DropNA for ghost columns/rows
+        input_df = input_df.dropna(how="all", axis=1).dropna(how="all", axis=0)
+
+        if col_name not in input_df.columns:
             raise ValueError(
-                "The uploaded file is missing the required 'Ingredient' column. Please check your headers."
+                "The uploaded file is missing the required 'Ingredient' column."
             )
 
-        # Clean up empty rows
         input_df = input_df.dropna(subset=[col_name])
-
-        # Drop NaNs and convert to string in one go
         input_df[col_name] = input_df[col_name].astype(str).str.strip()
 
-        materials_list = input_df[input_df[col_name] != ""][col_name].tolist()
+        # 3. Prevent column name collisions
+        reserved_cols = {"Identified INCI", "Row_ID"}
+        rename_map = {
+            c: f"Original_{c}"
+            for c in input_df.columns
+            if c in reserved_cols and c != col_name
+        }
+        if rename_map:
+            input_df = input_df.rename(columns=rename_map)
 
-        if len(materials_list) > 5000:
+        input_df = input_df.fillna("")  # Safe JSON conversion
+        input_df["Row_ID"] = range(1, len(input_df) + 1)  # Tag with IDs
+
+        if len(input_df) > 5000:
             raise ValueError("File contains too many materials. Maximum is 5000.")
+        if input_df.empty:
+            raise ValueError("File contains no valid ingredients to process.")
 
-        # 2. Init Gemini Client
+        # 4. Stash Original Data to DB
+        original_data = input_df.to_dict(orient="records")
+        with Session(engine) as session:
+            job = session.get(ScrapeJob, job_id)
+            job.original_data = original_data
+            session.add(job)
+            session.commit()
+
+        # Extract Lightweight List for processing
+        materials_list = input_df[["Row_ID", col_name]].to_dict("records")
+
+        # Init Gemini
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is missing from server configuration.")
 
@@ -163,25 +165,22 @@ def process_inci_job(job_id: int, file_path: str):
         final_results = []
         batch_size = settings.GEMINI_BATCH_SIZE
 
-        # 3. Process in Batches
+        # Process in Batches
         for i in range(0, len(materials_list), batch_size):
-            # --- CHECK FOR CANCELLATION ---
             with Session(engine) as session:
                 job = session.get(ScrapeJob, job_id)
                 if not job or job.status == "cancelled":
-                    APP_LOGGER.info(
-                        f"Job {job_id} cancelled by user. Stopping Gemini task."
-                    )
+                    APP_LOGGER.info(f"Job {job_id} cancelled by user. Stopping task.")
                     return
-            # ------------------------------
 
             if i > 0:
-                time.sleep(4.2)
+                time.sleep(4.2)  # Rate limit protection
 
-            batch = materials_list[i : i + batch_size]
+            batch_dicts = materials_list[i : i + batch_size]
+            batch_strings = [item[col_name] for item in batch_dicts]
             APP_LOGGER.info(f"Job {job_id}: Processing batch {i//batch_size + 1}")
 
-            input_materials_json_str = json.dumps(batch)
+            input_materials_json_str = json.dumps(batch_strings)
             final_prompt = (
                 prompt_template_batch_basic_inci
                 + "\n\nProcess the following:\n"
@@ -194,41 +193,51 @@ def process_inci_job(job_id: int, file_path: str):
                     contents=[final_prompt],
                     config=api_config,
                 )
-
-                raw_text = ""
-                if (
-                    response.candidates
-                    and response.candidates[0].content
-                    and response.candidates[0].content.parts
-                ):
-                    raw_text = "".join(
+                raw_text = (
+                    "".join(
                         part.text
                         for part in response.candidates[0].content.parts
                         if hasattr(part, "text")
                     )
+                    if response.candidates
+                    else ""
+                )
 
-                batch_parsed_results = parse_gemini_response(raw_text, batch)
+                batch_parsed_results = parse_gemini_response(raw_text, batch_strings)
+
+                # Re-attach Row_ID to the generated results
+                for idx, parsed_item in enumerate(batch_parsed_results):
+                    parsed_item["Row_ID"] = batch_dicts[idx]["Row_ID"]
                 final_results.extend(batch_parsed_results)
 
             except Exception as api_err:
                 APP_LOGGER.error(
                     f"Gemini API Error on batch {i//batch_size + 1}: {api_err}"
                 )
-                # Append error messages for this batch so the whole job doesn't fail
-                final_results.extend(
-                    [
-                        {"Input Name": mat, "Identified INCI": "API Error"}
-                        for mat in batch
-                    ]
-                )
+                for item in batch_dicts:
+                    final_results.append(
+                        {
+                            "Row_ID": item["Row_ID"],
+                            "Identified INCI": "API Error",
+                        }
+                    )
 
-        # 4. Save Final Results to DB
+        # 5. Merge Stashed Data with Results
+        results_by_row = {res.pop("Row_ID"): res for res in final_results}
+        combined_results = []
+
+        for row in original_data:
+            rid = row.pop("Row_ID", None)
+            match = results_by_row.get(rid, {"Identified INCI": "Error"})
+            combined_results.append({**row, **match})
+
         with Session(engine) as session:
             job = session.get(ScrapeJob, job_id)
             if job and job.status != "cancelled":
                 job.status = "completed"
-                job.results = final_results
-                job.result_count = len(final_results)
+                job.results = combined_results
+                job.result_count = len(combined_results)
+                job.original_data = None  # Cleanup stash
                 session.add(job)
                 session.commit()
                 APP_LOGGER.info(f"Job {job_id} completed successfully.")
@@ -239,6 +248,5 @@ def process_inci_job(job_id: int, file_path: str):
         APP_LOGGER.exception(f"Job {job_id} failed: {e}")
         _set_job_failed(job_id, "An unexpected system error occurred.")
     finally:
-        # Cleanup file
         if os.path.exists(file_path):
             os.remove(file_path)

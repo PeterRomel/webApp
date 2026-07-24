@@ -68,7 +68,6 @@ def process_data(scraper, input_name):
     if not matched_items:
         return [
             {
-                "Input Name": input_name,
                 "Match Status": "NOT FOUND",
                 "Restriction": "-",
                 "Function": "-",
@@ -145,7 +144,6 @@ def process_data(scraper, input_name):
 
         output_rows.append(
             {
-                "Input Name": input_name,
                 "Match Status": "FOUND",
                 "Restriction": restriction_raw,
                 "Function": func_raw,

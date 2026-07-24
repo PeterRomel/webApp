@@ -12,7 +12,6 @@ from app.core.logger_config import APP_LOGGER
 
 
 def _set_job_failed(job_id: int, error_msg: str):
-    """Helper to update DB when a job fails"""
     try:
         with Session(engine) as session:
             job = session.get(ScrapeJob, job_id)
@@ -22,212 +21,223 @@ def _set_job_failed(job_id: int, error_msg: str):
                 session.add(job)
                 session.commit()
     except Exception as e:
-        APP_LOGGER.error(f"Failed to write error state to DB for job {job_id}: {e}")
+        APP_LOGGER.error(f"Failed to write error DB for job {job_id}: {e}")
 
 
-@celery_app.task(name="handle_chord_error")
-def handle_chord_error(request, exc, traceback, job_id: int):
-    """Fallback if the Celery chord completely shatters."""
-    APP_LOGGER.error(f"Chord failed for Job {job_id}. Reason: {exc}")
-    _set_job_failed(job_id, "A critical system error caused the scraping to fail.")
-
-
-# ---------------------------------------------------------
-# 1. THE SPLITTER (Master Task)
-# ---------------------------------------------------------
 @celery_app.task(name="master_process_file")
 def master_process_file(job_id: int, file_path: str):
     try:
-
         col_name = "Ingredient"
 
-        try:
-            # Load the file
-            if file_path.endswith(".csv"):
-                try:
-                    input_df = pd.read_csv(
-                        file_path, encoding="utf-8", usecols=[col_name]
-                    )
-                except UnicodeDecodeError:
-                    input_df = pd.read_csv(
-                        file_path, encoding="cp1252", usecols=[col_name]
-                    )
-            else:
-                input_df = pd.read_excel(file_path, usecols=[col_name])
+        # 1. Read Everything
+        if file_path.endswith(".csv"):
+            try:
+                input_df = pd.read_csv(file_path, encoding="utf-8")
+            except UnicodeDecodeError:
+                input_df = pd.read_csv(file_path, encoding="cp1252")
+        else:
+            input_df = pd.read_excel(file_path)
 
-        except ValueError:
-            # Pandas throws a ValueError if the column is entirely missing when using `usecols`
+        # 2. Defect 1 Fix: Drop Ghost Data
+        input_df = input_df.dropna(how="all", axis=1).dropna(how="all", axis=0)
+
+        if col_name not in input_df.columns:
             raise ValueError(
-                "The uploaded file is missing the required 'Ingredient' column. Please check your headers."
+                "The uploaded file is missing the required 'Ingredient' column."
             )
 
-        # Clean up empty rows
         input_df = input_df.dropna(subset=[col_name])
-
-        # Drop NaNs and convert to string in one go
         input_df[col_name] = input_df[col_name].astype(str).str.strip()
 
-        # Combined Boolean Mask (Faster than multiple re-assignments)
-        # We create one "True/False" list and apply it once.
+        # 3. Defect 2 Fix: Collision Protection
+        reserved_cols = {
+            "Input Name",
+            "Match Status",
+            "Restriction",
+            "Function",
+            "Annex No",
+            "Annex Ref",
+            "Product Type",
+            "Max Conc",
+            "SCCS Opinion",
+            "Row_ID",
+        }
+        rename_map = {
+            c: f"Original_{c}"
+            for c in input_df.columns
+            if c in reserved_cols and c != col_name
+        }
+        if rename_map:
+            input_df = input_df.rename(columns=rename_map)
+
+        input_df = input_df.fillna("")
+        input_df["Row_ID"] = range(1, len(input_df) + 1)
+
+        # 4. Stash Original Data
+        original_data = input_df.to_dict(orient="records")
+        with Session(engine) as session:
+            job = session.get(ScrapeJob, job_id)
+            job.original_data = original_data
+            session.add(job)
+            session.commit()
+
+        # 5. Extract & Fan-Out
         mask = (input_df[col_name].str.len() >= 3) & (
             ~input_df[col_name].str.contains(r"[*?#$]", na=False)
         )
+        valid_df = input_df[mask]
 
-        # Filter and Convert the column to a simple Python list
-        ingredients_list = input_df.loc[mask, col_name].tolist()
+        # Convert to list of dicts with Row_ID and Ingredient
+        ingredients_list = valid_df[["Row_ID", col_name]].to_dict("records")
 
-        # ROW LIMIT CHECK
-        MAX_ROWS = 5000
-        if len(ingredients_list) > MAX_ROWS:
-            raise ValueError(
-                f"File contains {len(ingredients_list)} ingredients. The maximum allowed is {MAX_ROWS} per job. Please split your file and try again."
-            )
+        if len(ingredients_list) > 5000:
+            raise ValueError("File contains too many ingredients. Max is 5000.")
+        if not ingredients_list:
+            raise ValueError("No valid ingredients found to scrape.")
 
-        # Define Chunk Size (e.g., 50 ingredients per task)
         CHUNK_SIZE = 50
-
-        # Split the list into chunks
         chunks = [
             ingredients_list[i : i + CHUNK_SIZE]
             for i in range(0, len(ingredients_list), CHUNK_SIZE)
         ]
 
-        APP_LOGGER.info(
-            f"Job {job_id}: Split {len(ingredients_list)} ingredients into {len(chunks)} tasks."
-        )
-
-        # Create the concurrent tasks
         task_group = [
             process_chunk.s(job_id, chunk, idx + 1, len(chunks))
             for idx, chunk in enumerate(chunks)
         ]
 
-        # Create the callback task (Runs ONLY when all chunks are done)
         callback = merge_and_save_results.s(job_id)
-
-        # Create the error callback (If the chord shatters, this task will run instead)
         error_callback = handle_chord_error.s(job_id)
 
-        # Execute the Chord (Task Group -> Callback)
-        chord(task_group)(callback).on_error(error_callback)
+        chord(task_group)(callback.set(link_error=error_callback))
 
-    # Catch the ValueError we just raised (Friendly Error)
     except ValueError as ve:
-        APP_LOGGER.warning(f"Job {job_id} failed validation: {ve}")
         _set_job_failed(job_id, str(ve))
-
-    # Catch all other unexpected Python errors (System Error)
     except Exception as e:
-        APP_LOGGER.exception(f"Job {job_id} crashed unexpectedly: {e}")
-        _set_job_failed(
-            job_id,
-            "A system error occurred while reading your file. Support has been notified.",
-        )
-
+        APP_LOGGER.exception(f"Job {job_id} crashed: {e}")
+        _set_job_failed(job_id, "A system error occurred while reading your file.")
     finally:
-        # We don't need the file anymore because data is safely in Celery/Redis memory
         if os.path.exists(file_path):
             os.remove(file_path)
 
 
-# ---------------------------------------------------------
-# 2. THE WORKER (Concurrent Sub-Task)
-# ---------------------------------------------------------
-@celery_app.task(name="process_chunk", soft_time_limit=3300, time_limit=3600)
+@celery_app.task(name="handle_chord_error")
+def handle_chord_error(request, exc, traceback, job_id: int):
+    APP_LOGGER.error(f"Chord failed for Job {job_id}. Reason: {exc}")
+    _set_job_failed(job_id, "A critical error caused the scraping to fail.")
+
+
+@celery_app.task(name="process_chunk", time_limit=3600, soft_time_limit=3300)
 def process_chunk(job_id: int, ingredients: list, chunk_num: int, total_chunks: int):
-    # Initial check before booting Selenium
     with Session(engine) as session:
         job = session.get(ScrapeJob, job_id)
         if not job or job.status == "cancelled":
-            APP_LOGGER.info(f"Job {job_id} cancelled. Skipping chunk {chunk_num}.")
             return []
 
     scraper = None
     chunk_results = []
 
-    APP_LOGGER.info(f"Job {job_id}: Starting chunk {chunk_num}/{total_chunks}")
-
     try:
         scraper = CosingScraper()
 
-        for index, ing_name in enumerate(ingredients):
-
-            # --- MID-CHUNK ABORT LOGIC ---
-            # Every 5 ingredients, glance at the database to see if the user clicked cancel.
+        for index, item in enumerate(ingredients):
             if index > 0 and index % 5 == 0:
                 with Session(engine) as session:
                     current_job = session.get(ScrapeJob, job_id)
                     if not current_job or current_job.status == "cancelled":
-                        APP_LOGGER.info(
-                            f"Job {job_id} was cancelled by user. Aborting chunk {chunk_num} early."
-                        )
-                        break  # Instantly breaks out of the loop and kills Selenium!
+                        break
+
+            row_id = item["Row_ID"]
+            ing_name = item["Ingredient"]
 
             try:
                 rows = process_data(scraper, ing_name)
+                # Tag outputs with Row_ID
+                for r in rows:
+                    r["Row_ID"] = row_id
                 chunk_results.extend(rows)
             except Exception as e:
-                APP_LOGGER.error(
-                    f"Job {job_id} (Chunk {chunk_num}): Failed on {ing_name}: {e}"
-                )
+                APP_LOGGER.error(f"Job {job_id}: Failed on {ing_name}: {e}")
 
         return chunk_results
 
     except SoftTimeLimitExceeded:
         APP_LOGGER.warning(
-            f"Job {job_id} (Chunk {chunk_num}) took too long and was safely terminated."
+            f"Job {job_id} (Chunk {chunk_num}) safely terminated due to timeout."
         )
         return chunk_results
-
     except Exception as e:
-        APP_LOGGER.exception(f"Job {job_id} (Chunk {chunk_num}) failed entirely: {e}")
+        APP_LOGGER.exception(f"Job {job_id} (Chunk {chunk_num}) failed: {e}")
         return []
-
     finally:
         if scraper:
             scraper.close()
 
 
-# ---------------------------------------------------------
-# 3. THE MERGER (Callback Task)
-# ---------------------------------------------------------
 @celery_app.task(name="merge_and_save_results")
 def merge_and_save_results(all_chunk_results, job_id: int):
-    # 'all_chunk_results' is a list of lists returned by the sub-tasks.
-    # We need to flatten it into one big list.
     final_results = []
     for chunk in all_chunk_results:
-        if chunk:  # Ensure it's not None
+        if chunk:
             final_results.extend(chunk)
 
     try:
         with Session(engine) as session:
             job = session.get(ScrapeJob, job_id)
             if not job:
-                APP_LOGGER.warning(
-                    f"Job {job_id} completed, but was deleted from the database. Discarding results."
-                )
-                _set_job_failed(
-                    job_id, "Scraping completed, but was deleted from the database."
-                )
+                return
+            if job.status == "cancelled":
                 return
 
-            if job.status == "cancelled":
-                APP_LOGGER.info(f"Job {job_id} cancelled. Discarding merged results.")
-                return
+            orig_data = job.original_data or []
+
+            # Group scraped results by Row_ID
+            results_by_row = {}
+            for res in final_results:
+                rid = res.pop("Row_ID", None)
+                if rid not in results_by_row:
+                    results_by_row[rid] = []
+                results_by_row[rid].append(res)
+
+            combined_results = []
+
+            # Reconstruct the file sequentially
+            for row in orig_data:
+                rid = row.pop("Row_ID", None)
+
+                # Create a blank version of the extra columns for multiple matches
+                blank_row = {k: "" for k in row.keys()}
+
+                matches = results_by_row.get(rid, [])
+
+                if not matches:
+                    # Filtered out or failed
+                    empty_match = {
+                        "Match Status": "NOT PROCESSED",
+                        "Restriction": "-",
+                        "Function": "-",
+                        "Annex No": "-",
+                        "Annex Ref": "-",
+                        "Product Type": "-",
+                        "Max Conc": "-",
+                        "SCCS Opinion": "-",
+                    }
+                    combined_results.append({**row, **empty_match})
+                else:
+                    for idx, match in enumerate(matches):
+                        if idx == 0:
+                            combined_results.append({**row, **match})
+                        else:
+                            # Second/Third matches get blank original columns
+                            combined_results.append({**blank_row, **match})
 
             job.status = "completed"
-            job.results = final_results
-            job.result_count = len(final_results)
+            job.results = combined_results
+            job.result_count = len(combined_results)
+            job.original_data = None  # Free up DB space
             session.add(job)
             session.commit()
 
-        APP_LOGGER.info(
-            f"Job {job_id}: Successfully merged and saved {len(final_results)} results."
-        )
-
     except Exception as e:
-        APP_LOGGER.exception(f"Job {job_id}: Failed to save merged results: {e}")
-        _set_job_failed(
-            job_id, "Scraping completed, but failed to save results to the database."
-        )
+        APP_LOGGER.exception(f"Job {job_id} Merge Failed: {e}")
+        _set_job_failed(job_id, "Completed, but failed to save formatted results.")

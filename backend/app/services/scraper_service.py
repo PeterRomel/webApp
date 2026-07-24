@@ -119,7 +119,7 @@ class JobService:
     def process_forwarding(
         self, original_job_id: int, user_id: int
     ) -> tuple[ScrapeJob, str]:
-        """Takes an INCI job, parses the results, and prepares a new Scraper job."""
+        """Takes an INCI job, parses the results, applies formatting, and prepares a new Scraper job."""
         original_job = self.get_job_safely(original_job_id, user_id)
 
         if original_job.status != "completed" or not original_job.results:
@@ -131,34 +131,60 @@ class JobService:
                 status_code=400, detail="Only INCI jobs can be forwarded."
             )
 
-        # Re-check active limits before creating a new job
         self.enforce_job_limit(user_id)
 
-        # Extract Cleaned INCI names
-        cleaned_ingredients = []
-        for item in original_job.results:
-            inci_text = item.get("Identified INCI", "")
-            if not inci_text:
-                continue
-            text_lower = inci_text.lower()
-            if "error" in text_lower or "not found" in text_lower:
+        forwarded_data = []
+
+        for row in original_job.results:
+            inci_text = row.get("Identified INCI", "")
+
+            # Skip invalid INCI text
+            if (
+                not inci_text
+                or "error" in inci_text.lower()
+                or "not found" in inci_text.lower()
+            ):
                 continue
 
-            parts = [p.strip() for p in inci_text.split(",")]
-            cleaned_ingredients.extend(parts)
+            parts = [p.strip() for p in inci_text.split(",") if p.strip()]
+            if not parts:
+                continue
 
-        if not cleaned_ingredients:
+            # 1. Build the base row, preserving exact order, but renaming "Ingredient"
+            base_row = {}
+            for k, v in row.items():
+                if k in ["Identified INCI", "Input Name"]:  # Skip these entirely
+                    continue
+                if k == "Ingredient":
+                    # Rename it, but it stays in its original position!
+                    base_row["Original_Ingredient"] = v
+                else:
+                    base_row[k] = v
+
+            # 2. Create the blank version of the original columns for multi-row matches
+            blank_base_row = {k: "" for k in base_row.keys()}
+
+            # 3. Append the new split ingredients to the END
+            for idx, part in enumerate(parts):
+                if idx == 0:
+                    # **base_row unpacks the original columns in order.
+                    # "Ingredient": part is placed at the very end.
+                    new_row = {**base_row, "Ingredient": part}
+                else:
+                    new_row = {**blank_base_row, "Ingredient": part}
+
+                forwarded_data.append(new_row)
+
+        if not forwarded_data:
             raise HTTPException(
                 status_code=400, detail="No valid INCI names found to forward."
             )
 
-        # Construct CSV
-        df = pd.DataFrame({"Ingredient": cleaned_ingredients})
+        df = pd.DataFrame(forwarded_data)
         file_id = str(uuid.uuid4())
         saved_path = os.path.join(settings.UPLOAD_DIR, f"forwarded_{file_id}.csv")
         df.to_csv(saved_path, index=False)
 
-        # Create New Scraper Job
         new_job = ScrapeJob(
             filename=f"[Forwarded] {original_job.filename}",
             status="pending",
