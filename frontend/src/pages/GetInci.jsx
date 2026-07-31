@@ -12,8 +12,10 @@ import {
   Sparkles,
   Send,
   Download,
+  Edit3,
 } from "lucide-react";
 import api from "../api/axios";
+import { useEdit } from "../hooks/useEdit";
 import { ITEMS_PER_PAGE } from "../config/constants";
 
 const ExpandableCell = ({ content }) => {
@@ -43,6 +45,36 @@ const GetInci = () => {
 
   const abortControllerRef = useRef(null);
   const navigate = useNavigate();
+
+  const { activeEdits, addEdit } = useEdit();
+  const [isStartingEdit, setIsStartingEdit] = useState(false);
+
+  // Check if current results are actively being edited
+  const isCurrentlyEditing = activeEdits.some(
+    (edit) => edit.originalJobId === results?.id,
+  );
+
+  const handleEditJob = async () => {
+    setIsStartingEdit(true);
+    try {
+      const response = await api.post(`/api/scrape/${results.id}/edit`);
+      const { sheet_id, sheet_url } = response.data;
+
+      addEdit({
+        originalJobId: results.id,
+        sheetId: sheet_id,
+        sheetUrl: sheet_url,
+        filename: results.filename,
+      });
+
+      // Pop open the Google Sheet!
+      window.open(sheet_url, "_blank");
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to start edit session.");
+    } finally {
+      setIsStartingEdit(false);
+    }
+  };
 
   const resetToIdle = () => {
     setStatus("IDLE");
@@ -338,6 +370,22 @@ const GetInci = () => {
                       <Send className="w-4 h-4 mr-2" />
                     )}
                     Forward to Cosing Scraper
+                  </button>
+                )}
+
+                {/* Edit in Sheets Button --- */}
+                {results.result_count > 0 && (
+                  <button
+                    onClick={handleEditJob}
+                    disabled={isStartingEdit || isCurrentlyEditing}
+                    className="flex w-full sm:w-auto items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 transition-colors shadow-sm text-sm font-medium"
+                  >
+                    {isStartingEdit ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Edit3 className="w-4 h-4 mr-2 text-blue-500" />
+                    )}
+                    {isCurrentlyEditing ? "Editing..." : "Edit in Sheets"}
                   </button>
                 )}
 

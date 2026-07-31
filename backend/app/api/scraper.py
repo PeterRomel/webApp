@@ -1,4 +1,6 @@
 # app/api/scraper.py
+import pandas as pd
+from app.services.google_sheets_service import GoogleSheetsService
 import os
 import uuid
 import json
@@ -9,7 +11,8 @@ from fastapi.concurrency import run_in_threadpool
 from starlette.background import BackgroundTask
 from sqlmodel import Session
 
-from app.db.engine import get_session
+from app.db.engine import engine, get_session
+from app.models.scraper import ScrapeJob
 from app.api.deps import get_current_user_id
 from app.core.config import settings
 from app.core.logger_config import APP_LOGGER
@@ -208,3 +211,189 @@ async def cancel_job(
     service = JobService(session)
     await run_in_threadpool(service.cancel_job, job_id, current_user_id)
     return {"detail": "Job successfully cancelled"}
+
+
+# --- GOOGLE SHEETS PIPELINE ---
+
+
+@router.post("/{job_id}/edit")
+async def push_to_google_sheets(
+    job_id: int,
+    session: Session = Depends(get_session),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    service = JobService(session)
+    job = await run_in_threadpool(service.get_job_safely, job_id, current_user_id)
+
+    if job.status != "completed" or not job.results:
+        raise HTTPException(status_code=400, detail="Job has no results to edit.")
+
+    def _sync_create():
+        gs = GoogleSheetsService(settings.GOOGLE_OAUTH_TOKEN_FILE)
+        return gs.create_edit_sheet(job.results, job.filename)
+
+    sheet_id, sheet_url = await run_in_threadpool(_sync_create)
+    return {"sheet_id": sheet_id, "sheet_url": sheet_url, "filename": job.filename}
+
+
+@router.post("/{job_id}/pull-edit")
+async def pull_from_google_sheets(
+    job_id: int,
+    sheet_id: str,
+    session: Session = Depends(get_session),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    service = JobService(session)
+    job = await run_in_threadpool(service.get_job_safely, job_id, current_user_id)
+
+    dest_path = os.path.join(UPLOAD_DIR, f"edit_{uuid.uuid4()}.csv")
+
+    def _sync_download():
+        gs = GoogleSheetsService(settings.GOOGLE_OAUTH_TOKEN_FILE)
+        gs.export_sheet_to_csv(sheet_id, dest_path)
+
+    await run_in_threadpool(_sync_download)
+
+    try:
+        if os.path.getsize(dest_path) > 5 * 1024 * 1024:
+            raise ValueError("Edited file exceeds 5MB limit.")
+
+        df = pd.read_csv(dest_path, encoding="utf-8")
+        df = df.dropna(how="all", axis=1).dropna(how="all", axis=0).fillna("")
+
+        if len(df) > 5000:
+            raise ValueError("Edited file exceeds 5,000 rows.")
+        if df.empty:
+            raise ValueError("Edited file contains no data.")
+
+        if "Ingredient" not in df.columns and "Identified INCI" not in df.columns:
+            raise ValueError("Missing 'Ingredient' or 'Identified INCI' column.")
+
+        results_json = df.to_dict(orient="records")
+        new_job = await run_in_threadpool(
+            service.create_job, f"[Edited] {job.filename}", current_user_id, "root"
+        )
+
+        with Session(engine) as db:
+            active_job = db.get(ScrapeJob, new_job.id)
+            active_job.status = "completed"
+            active_job.results = results_json
+            active_job.result_count = len(results_json)
+            db.add(active_job)
+            db.commit()
+
+        # UNCOMMENTED AND UPDATED
+        def _sync_delete():
+            gs = GoogleSheetsService(settings.GOOGLE_OAUTH_TOKEN_FILE)
+            gs.delete_sheet(sheet_id)
+
+        await run_in_threadpool(_sync_delete)
+
+        return {"job_id": new_job.id, "message": "Edits pulled and saved successfully."}
+
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        APP_LOGGER.error(f"Pull Edit Error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process edited data.")
+    finally:
+        if os.path.exists(dest_path):
+            os.remove(dest_path)
+
+
+@router.post("/{job_id}/cancel-edit")
+async def cancel_edit_session(
+    job_id: int,
+    sheet_id: str,
+    session: Session = Depends(get_session),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    service = JobService(session)
+    await run_in_threadpool(service.get_job_safely, job_id, current_user_id)
+
+    def _sync_delete():
+        gs = GoogleSheetsService(settings.GOOGLE_OAUTH_TOKEN_FILE)
+        gs.delete_sheet(sheet_id)
+
+    await run_in_threadpool(_sync_delete)
+    return {"message": "Edit session cancelled and sheet deleted."}
+
+
+@router.post("/{job_id}/root-forward-to-scraper")
+async def root_forward_to_scraper(
+    job_id: int,
+    session: Session = Depends(get_session),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    service = JobService(session)
+    job = await run_in_threadpool(service.get_job_safely, job_id, current_user_id)
+
+    if job.job_type != "root":
+        raise HTTPException(
+            status_code=400,
+            detail="Only Root jobs can be explicitly forwarded this way.",
+        )
+
+    df = pd.DataFrame(job.results)
+
+    if "Ingredient" in df.columns and "Identified INCI" in df.columns:
+        df = df.rename(columns={"Ingredient": "Original_Ingredient"})
+        df = df.rename(columns={"Identified INCI": "Ingredient"})
+    elif "Identified INCI" in df.columns and "Ingredient" not in df.columns:
+        df = df.rename(columns={"Identified INCI": "Ingredient"})
+    elif "Ingredient" not in df.columns:
+        raise HTTPException(
+            status_code=400, detail="Missing 'Ingredient' column required for Scraper."
+        )
+
+    file_id = str(uuid.uuid4())
+    saved_path = os.path.join(UPLOAD_DIR, f"forwarded_{file_id}.csv")
+    df.to_csv(saved_path, index=False)
+
+    new_job = await run_in_threadpool(
+        service.create_job,
+        job.filename.replace("[Edited]", "[Scraping]"),
+        current_user_id,
+        "scraper",
+    )
+    master_process_file.delay(new_job.id, saved_path)
+
+    return {"job_id": new_job.id, "message": "Root job forwarded to Scraper."}
+
+
+@router.post("/{job_id}/root-forward-to-inci")
+async def root_forward_to_inci(
+    job_id: int,
+    session: Session = Depends(get_session),
+    current_user_id: int = Depends(get_current_user_id),
+):
+    service = JobService(session)
+    job = await run_in_threadpool(service.get_job_safely, job_id, current_user_id)
+
+    if job.job_type != "root":
+        raise HTTPException(
+            status_code=400,
+            detail="Only Root jobs can be explicitly forwarded this way.",
+        )
+
+    df = pd.DataFrame(job.results)
+
+    if "Ingredient" not in df.columns:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing 'Ingredient' column required for INCI generation.",
+        )
+
+    file_id = str(uuid.uuid4())
+    saved_path = os.path.join(UPLOAD_DIR, f"forwarded_inci_{file_id}.csv")
+    df.to_csv(saved_path, index=False)
+
+    new_job = await run_in_threadpool(
+        service.create_job,
+        job.filename.replace("[Edited]", "[INCI]"),
+        current_user_id,
+        "inci",
+    )
+    process_inci_job.delay(new_job.id, saved_path)
+
+    return {"job_id": new_job.id, "message": "Root job forwarded to INCI generator."}

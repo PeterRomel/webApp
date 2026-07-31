@@ -8,6 +8,7 @@ from google.genai import types
 from app.core.celery_app import celery_app
 from app.db.engine import Session, engine
 from app.models.scraper import ScrapeJob
+from app.models.user import User
 from app.core.logger_config import APP_LOGGER
 from app.core.config import settings
 

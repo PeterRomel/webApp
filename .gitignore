@@ -38,3 +38,6 @@ celerybeat-schedule
 celerybeat-schedule-shm
 celerybeat-schedule-wal
 systemFiles
+
+# Google account OAuth2 token
+backend/token.json

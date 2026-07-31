@@ -6,6 +6,7 @@ from celery.exceptions import SoftTimeLimitExceeded
 from app.core.celery_app import celery_app
 from app.db.engine import Session, engine
 from app.models.scraper import ScrapeJob
+from app.models.user import User
 from app.core.scraper_config import process_data
 from app.services.scraper_service import CosingScraper
 from app.core.logger_config import APP_LOGGER

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useEdit } from "../hooks/useEdit";
 import api from "../api/axios";
 import Modal from "../components/Modal";
 import { ITEMS_PER_PAGE } from "../config/constants";
@@ -15,6 +16,8 @@ import {
   Sparkles,
   Send,
   LayoutDashboard,
+  Edit3,
+  Database,
 } from "lucide-react";
 
 // --- MINI COMPONENT: Touch-Friendly Expandable Cell ---
@@ -52,6 +55,7 @@ const History = () => {
   const [modalData, setModalData] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isModalLoading, setIsModalLoading] = useState(false);
+  const { activeEdits, addEdit } = useEdit();
 
   // Modal Pagination State
   const [modalPage, setModalPage] = useState(1);
@@ -73,9 +77,51 @@ const History = () => {
     }
   };
 
+  // --- Listen for the Modal's refresh trigger ---
   useEffect(() => {
     fetchHistory(currentPage);
+    const handleSilentRefresh = () => fetchHistory(currentPage);
+    window.addEventListener("refreshHistory", handleSilentRefresh);
+    return () =>
+      window.removeEventListener("refreshHistory", handleSilentRefresh);
   }, [currentPage]);
+
+  // Helper check
+  const isEditing = (jobId) =>
+    activeEdits.some((e) => e.originalJobId === jobId);
+
+  // --- Start Edit from History ---
+  const handleEditJob = async (jobId, filename) => {
+    try {
+      const response = await api.post(`/api/scrape/${jobId}/edit`);
+      const { sheet_id, sheet_url } = response.data;
+      addEdit({
+        originalJobId: jobId,
+        sheetId: sheet_id,
+        sheetUrl: sheet_url,
+        filename,
+      });
+      window.open(sheet_url, "_blank");
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to start edit session.");
+    }
+  };
+
+  // --- Handle Root Forwarding ---
+  const handleRootForward = async (jobId, filename, targetType) => {
+    const confirmed = window.confirm(
+      `Forward "${filename}" to the ${targetType.toUpperCase()} generator?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.post(`/api/scrape/${jobId}/root-forward-to-${targetType}`);
+      alert(`Success! A new ${targetType} job has been started.`);
+      fetchHistory(currentPage);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to forward data.");
+    }
+  };
 
   // --- OPEN MODAL & FETCH FULL DATA ---
   const openDetails = async (job) => {
@@ -270,6 +316,11 @@ const History = () => {
                               className="w-4 h-4 text-purple-500 mr-2 shrink-0"
                               title="AI INCI Generator"
                             />
+                          ) : job.job_type === "root" ? (
+                            <Database
+                              className="w-4 h-4 text-emerald-500 mr-2 shrink-0"
+                              title="Root Dataset"
+                            />
                           ) : (
                             <LayoutDashboard
                               className="w-4 h-4 text-blue-500 mr-2 shrink-0"
@@ -285,7 +336,7 @@ const History = () => {
                         </div>
                       </td>
 
-                      {/* 1. STATUS COLUMN */}
+                      {/* STATUS COLUMN */}
                       <td className="px-6 py-4">
                         <div className="flex flex-col items-start gap-1.5">
                           <span
@@ -318,28 +369,68 @@ const History = () => {
                         {job.result_count} items
                       </td>
 
-                      {/* 2. ACTIONS COLUMN */}
+                      {/* ACTIONS COLUMN */}
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end space-x-3 min-h-[24px]">
                           {job.status === "completed" &&
                             job.result_count > 0 && (
                               <>
+                                {/* 1. EVERY COMPLETED JOB GETS VIEW AND EDIT */}
                                 <button
                                   onClick={() => openDetails(job)}
-                                  className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors hover:bg-blue-50"
+                                  className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors hover:bg-gray-100"
                                   title="View Data"
                                 >
                                   <Eye className="w-5 h-5" />
                                 </button>
+
                                 <button
                                   onClick={() =>
-                                    handleDownload(job.id, job.filename)
+                                    handleEditJob(job.id, job.filename)
                                   }
-                                  className="text-green-600 hover:text-green-900 p-1 rounded transition-colors hover:bg-green-50"
-                                  title="Download Excel"
+                                  disabled={isEditing(job.id)}
+                                  className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title={
+                                    isEditing(job.id)
+                                      ? "Currently Editing"
+                                      : "Edit in Sheets"
+                                  }
                                 >
-                                  <Download className="w-5 h-5" />
+                                  <Edit3 className="w-5 h-5" />
                                 </button>
+
+                                {/* 2. SPECIFIC FORWARDING BUTTONS BY JOB TYPE */}
+                                {job.job_type === "root" && (
+                                  <>
+                                    <button
+                                      onClick={() =>
+                                        handleRootForward(
+                                          job.id,
+                                          job.filename,
+                                          "scraper",
+                                        )
+                                      }
+                                      className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors hover:bg-blue-50"
+                                      title="Forward to Scraper"
+                                    >
+                                      <LayoutDashboard className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleRootForward(
+                                          job.id,
+                                          job.filename,
+                                          "inci",
+                                        )
+                                      }
+                                      className="text-purple-600 hover:text-purple-900 p-1 rounded transition-colors hover:bg-purple-50"
+                                      title="Forward to INCI Generator"
+                                    >
+                                      <Sparkles className="w-5 h-5" />
+                                    </button>
+                                  </>
+                                )}
+
                                 {job.job_type === "inci" && (
                                   <button
                                     onClick={() =>
@@ -351,9 +442,21 @@ const History = () => {
                                     <Send className="w-5 h-5" />
                                   </button>
                                 )}
+
+                                {/* 3. EVERY COMPLETED JOB GETS A DOWNLOAD BUTTON */}
+                                <button
+                                  onClick={() =>
+                                    handleDownload(job.id, job.filename)
+                                  }
+                                  className="text-green-600 hover:text-green-900 p-1 rounded transition-colors hover:bg-green-50"
+                                  title="Download Excel"
+                                >
+                                  <Download className="w-5 h-5" />
+                                </button>
                               </>
                             )}
 
+                          {/* EMPTY OR PENDING STATES */}
                           {job.status === "completed" &&
                             job.result_count === 0 && (
                               <span className="text-xs italic text-gray-400 mr-2">
@@ -367,6 +470,7 @@ const History = () => {
 
                           <div className="w-px h-5 bg-gray-200 mx-1"></div>
 
+                          {/* CANCEL OR DELETE */}
                           {job.status === "pending" ? (
                             <button
                               onClick={() =>
@@ -382,8 +486,13 @@ const History = () => {
                               onClick={() =>
                                 handleDeleteJob(job.id, job.filename)
                               }
-                              className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors hover:bg-red-50"
-                              title="Delete Job"
+                              disabled={isEditing(job.id)}
+                              className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title={
+                                isEditing(job.id)
+                                  ? "Cannot delete while editing"
+                                  : "Delete Job"
+                              }
                             >
                               <Trash2 className="w-5 h-5" />
                             </button>
@@ -395,7 +504,7 @@ const History = () => {
                 </tbody>
               </table>
             </div>{" "}
-            {/* 3. END OF NEW SCROLLABLE WRAPPER */}
+            {/* END OF NEW SCROLLABLE WRAPPER */}
             {/* HISTORY PAGINATION CONTROLS */}
             {/* Added 'relative z-20' so the shadow of the table doesn't overlap the buttons */}
             <div className="bg-gray-50 px-4 md:px-6 py-3 border-t border-gray-200 flex flex-wrap gap-2 items-center justify-between relative z-20">

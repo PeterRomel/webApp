@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "My Web App"
     DATABASE_URL: str
     SECRET_KEY: str  # For JWT tokens
+
+    GOOGLE_OAUTH_TOKEN_FILE: str = str(
+        Path(__file__).resolve().parent.parent.parent / "token.json"
+    )
+
     API_KEY_COSING: str
     GEMINI_API_KEY: str
     GEMINI_MODEL_NAME: str = "gemini-2.5-flash"
@@ -16,7 +21,7 @@ class Settings(BaseSettings):
     DEFAULT_PAGINATION_LIMIT: int = 20
     MAX_PAGINATION_LIMIT: int = 100
     ALGORITHM: str = "HS256"
-    REDIS_URL_CELERY: str = "redis://localhost:6379/0"  # DB 0 for Task Queue
+    REDIS_URL_CELERY: str = "redis://localhost:6379/0"
     REDIS_URL_BLACKLIST: dict = Field(
         default_factory=lambda: {
             "host": "localhost",

@@ -1,5 +1,7 @@
 import { useAuth } from "../hooks/useAuth";
+import { useEdit } from "../hooks/useEdit";
 import { getImageUrl } from "../utils/helpers";
+import FloatingEditWidget from "./FloatingEditWidget";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -16,18 +18,15 @@ import { useState, useRef, useEffect } from "react";
 
 const DashboardLayout = ({ children }) => {
   const { user, logout } = useAuth();
+  const { clearEdits } = useEdit(); // <-- Get the wipe function
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Desktop Sidebar State (Shrinks to icons)
   const [isDesktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
-  // Mobile Sidebar State (Slides in from the left)
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  // Dropdown State
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Close dropdown if user clicks outside of it
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -46,6 +45,7 @@ const DashboardLayout = ({ children }) => {
   ];
 
   const handleLogout = async () => {
+    clearEdits();
     await logout();
     navigate("/login");
   };
@@ -221,6 +221,8 @@ const DashboardLayout = ({ children }) => {
             )}
           </div>
         </header>
+
+        <FloatingEditWidget />
 
         {/* Content Box - Adjusted padding for mobile */}
         <main className="flex-1 p-4 md:p-8 overflow-y-auto bg-gray-50 relative">

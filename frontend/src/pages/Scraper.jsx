@@ -8,7 +8,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowRight,
+  Edit3,
+  Download,
 } from "lucide-react";
+import { useEdit } from "../hooks/useEdit";
 import { ITEMS_PER_PAGE } from "../config/constants";
 import api from "../api/axios";
 
@@ -43,6 +46,32 @@ const Scraper = () => {
 
   // This acts as our network "kill switch"
   const abortControllerRef = useRef(null);
+
+  const { activeEdits, addEdit } = useEdit();
+  const [isStartingEdit, setIsStartingEdit] = useState(false);
+
+  const isCurrentlyEditing = activeEdits.some(
+    (edit) => edit.originalJobId === results?.id,
+  );
+
+  const handleEditJob = async () => {
+    setIsStartingEdit(true);
+    try {
+      const response = await api.post(`/api/scrape/${results.id}/edit`);
+      const { sheet_id, sheet_url } = response.data;
+      addEdit({
+        originalJobId: results.id,
+        sheetId: sheet_id,
+        sheetUrl: sheet_url,
+        filename: results.filename,
+      });
+      window.open(sheet_url, "_blank");
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to start edit session.");
+    } finally {
+      setIsStartingEdit(false);
+    }
+  };
 
   // --- HELPER: Reset the view to upload a new file ---
   const resetToIdle = () => {
@@ -358,7 +387,7 @@ const Scraper = () => {
                 </div>
               </div>
 
-              {/* FIX 2: Made the button container full width on mobile, stacked buttons on tiny screens */}
+              {/* Made the button container full width on mobile, stacked buttons on tiny screens */}
               <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
                 <button
                   onClick={resetToIdle}
@@ -366,6 +395,23 @@ const Scraper = () => {
                 >
                   Start New Job
                 </button>
+
+                {/* Edit in Sheets Button --- */}
+                {results.result_count > 0 && (
+                  <button
+                    onClick={handleEditJob}
+                    disabled={isStartingEdit || isCurrentlyEditing}
+                    className="flex w-full sm:w-auto items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-100 transition-colors shadow-sm text-sm font-medium"
+                  >
+                    {isStartingEdit ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Edit3 className="w-4 h-4 mr-2 text-blue-500" />
+                    )}
+                    {isCurrentlyEditing ? "Editing..." : "Edit in Sheets"}
+                  </button>
+                )}
+
                 {results.result_count > 0 && (
                   <button
                     onClick={handleDownload}
