@@ -133,47 +133,7 @@ class JobService:
 
         self.enforce_job_limit(user_id)
 
-        forwarded_data = []
-
-        for row in original_job.results:
-            inci_text = row.get("Identified INCI", "")
-
-            # Skip invalid INCI text
-            if (
-                not inci_text
-                or "error" in inci_text.lower()
-                or "not found" in inci_text.lower()
-            ):
-                continue
-
-            parts = [p.strip() for p in inci_text.split(",") if p.strip()]
-            if not parts:
-                continue
-
-            # 1. Build the base row, preserving exact order, but renaming "Ingredient"
-            base_row = {}
-            for k, v in row.items():
-                if k in ["Identified INCI", "Input Name"]:  # Skip these entirely
-                    continue
-                if k == "Ingredient":
-                    # Rename it, but it stays in its original position!
-                    base_row["Original_Ingredient"] = v
-                else:
-                    base_row[k] = v
-
-            # 2. Create the blank version of the original columns for multi-row matches
-            blank_base_row = {k: "" for k in base_row.keys()}
-
-            # 3. Append the new split ingredients to the END
-            for idx, part in enumerate(parts):
-                if idx == 0:
-                    # **base_row unpacks the original columns in order.
-                    # "Ingredient": part is placed at the very end.
-                    new_row = {**base_row, "Ingredient": part}
-                else:
-                    new_row = {**blank_base_row, "Ingredient": part}
-
-                forwarded_data.append(new_row)
+        forwarded_data = self.format_forwarded_data(original_job.results)
 
         if not forwarded_data:
             raise HTTPException(
@@ -196,6 +156,61 @@ class JobService:
         self.session.refresh(new_job)
 
         return new_job, saved_path
+
+    @staticmethod
+    def format_forwarded_data(raw_results: list[dict]) -> list[dict]:
+        """
+        Helper function to unify how we prepare data for the Cosing Scraper.
+        It finds the INCI names, splits them by commas, and manages the columns.
+        """
+        forwarded_data = []
+
+        for row in raw_results:
+            # 1. Find the text we want to split.
+            # An edited file might have "Identified INCI" or just "Ingredient".
+            target_text = str(row.get("Identified INCI", row.get("Ingredient", "")))
+
+            # Skip rows that are empty or have error messages
+            if (
+                not target_text
+                or "error" in target_text.lower()
+                or "not found" in target_text.lower()
+            ):
+                continue
+
+            # Split the text by commas and clean up any extra spaces
+            parts = [p.strip() for p in target_text.split(",") if p.strip()]
+            if not parts:
+                continue
+
+            # 2. Build the base row (Preserving their original data)
+            base_row = {}
+            for k, v in row.items():
+                if k in ["Identified INCI", "Input Name"]:
+                    continue
+
+                if k == "Ingredient":
+                    if "Identified INCI" in row:
+                        # If both exist, keep the original ingredient name safe
+                        base_row["Original_Ingredient"] = v
+                    # If "Identified INCI" doesn't exist, we intentionally drop "Ingredient" here,
+                    # because we will add the split parts as the new "Ingredient" in step 4!
+                else:
+                    base_row[k] = v
+
+            # 3. Create a blank version for the 2nd, 3rd, 4th split ingredients
+            blank_base_row = {k: "" for k in base_row.keys()}
+
+            # 4. Create the new rows
+            for idx, part in enumerate(parts):
+                if idx == 0:
+                    new_row = {**base_row, "Ingredient": part}
+                else:
+                    new_row = {**blank_base_row, "Ingredient": part}
+
+                forwarded_data.append(new_row)
+
+        return forwarded_data
 
     @staticmethod
     def check_status_for_stream(job_id: int, user_id: int) -> dict:

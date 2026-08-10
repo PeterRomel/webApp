@@ -334,18 +334,16 @@ async def root_forward_to_scraper(
             detail="Only Root jobs can be explicitly forwarded this way.",
         )
 
-    df = pd.DataFrame(job.results)
+    forwarded_data = JobService.format_forwarded_data(job.results)
 
-    if "Ingredient" in df.columns and "Identified INCI" in df.columns:
-        df = df.rename(columns={"Ingredient": "Original_Ingredient"})
-        df = df.rename(columns={"Identified INCI": "Ingredient"})
-    elif "Identified INCI" in df.columns and "Ingredient" not in df.columns:
-        df = df.rename(columns={"Identified INCI": "Ingredient"})
-    elif "Ingredient" not in df.columns:
+    if not forwarded_data:
         raise HTTPException(
-            status_code=400, detail="Missing 'Ingredient' column required for Scraper."
+            status_code=400,
+            detail="Missing valid ingredients to forward to Scraper.",
         )
 
+    # Create the file for Celery
+    df = pd.DataFrame(forwarded_data)
     file_id = str(uuid.uuid4())
     saved_path = os.path.join(UPLOAD_DIR, f"forwarded_{file_id}.csv")
     df.to_csv(saved_path, index=False)
